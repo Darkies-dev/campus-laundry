@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'CampusLaundry | Hostel Laundry Management',
+  title: 'CampusLaundry',
   description: 'Smart college hostel laundry quota tracking, drop point drop-off, and cycle management system.',
 }
 
