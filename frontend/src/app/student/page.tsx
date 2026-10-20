@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -14,7 +14,7 @@ import {
   Transaction,
 } from '@/lib/api'
 
-export default function StudentDashboardPage() {
+function StudentDashboardContent() {
   const searchParams = useSearchParams()
   const initialReg = searchParams.get('reg') || '2502050680'
 
@@ -725,5 +725,19 @@ export default function StudentDashboardPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function StudentDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[60vh] text-slate-400 text-sm">
+          Loading student session...
+        </div>
+      }
+    >
+      <StudentDashboardContent />
+    </Suspense>
   )
 }
