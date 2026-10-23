@@ -330,9 +330,6 @@ function StudentDashboardContent() {
                   <span>Used: <strong className="text-white font-mono">{student.cycle_used}</strong></span>
                   <span>Quota: <strong className="text-slate-300 font-mono">{student.quota}</strong></span>
                 </div>
-                <div className="text-[11px] text-slate-500 border-t border-white/5 pt-1.5">
-                  <strong className="text-sage font-mono">{remaining}</strong> of {total} cycles available
-                </div>
               </div>
             </div>
           )
