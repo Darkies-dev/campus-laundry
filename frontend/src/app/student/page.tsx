@@ -221,73 +221,88 @@ function StudentDashboardContent() {
         </div>
       )}
 
-      {/* STUDENT PROFILE & REMAINING CYCLE CARDS (SIDE BY SIDE) */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
-        {/* Card 1: Student Information */}
-        <div className="glass-panel p-5 sm:p-6 rounded-3xl border-white/10 shadow-glass flex flex-col justify-center space-y-4">
-          <div className="flex items-center justify-between gap-3">
+      {/* 3 BALANCED OVERVIEW CARDS: PROFILE, QUOTA DONUT, CURRENT CYCLE STATUS */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+        {/* Card 1: Student Profile Information */}
+        <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-sage">Student Profile</span>
-            <div className="flex items-center gap-2 bg-obsidian-900 border border-white/10 rounded-xl px-3 py-1.5">
-              <span className="text-xs text-slate-400">Reg No:</span>
-              <span className="text-sm font-bold text-white font-mono tracking-wide">{studentId}</span>
-            </div>
+            <span className="text-xs font-mono font-bold text-white bg-obsidian-900 border border-white/10 rounded-lg px-2.5 py-1">
+              #{studentId}
+            </span>
           </div>
 
           {studentLoading && (
-            <div className="text-xs text-slate-400 animate-pulse">Loading quota records...</div>
+            <div className="text-xs text-slate-400 animate-pulse">Loading profile...</div>
           )}
 
           {studentError && (
-            <div className="text-xs text-terracotta bg-terracotta/10 px-3 py-1.5 rounded-lg border border-terracotta/20">
+            <div className="text-xs text-terracotta bg-terracotta/10 px-2.5 py-1 rounded-lg border border-terracotta/20">
               {studentError}
             </div>
           )}
 
           {student && (
-            <div className="space-y-2">
-              <div className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">{student.std_name}</div>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-300">
-                <span>Hostel: <strong className="text-sage">{student.hostel}</strong></span>
-                <span className="text-slate-500">&bull;</span>
-                <span>Room: <strong className="text-white">{student.room}</strong></span>
-                <span className="text-slate-500">&bull;</span>
-                <span>Year: <strong className="text-gold">{student.academic_year}</strong></span>
+            <div className="my-auto space-y-3 py-1">
+              <div className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+                {student.std_name}
+              </div>
+
+              {/* Grid badges filling out card area */}
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-2 rounded-xl bg-obsidian-900/80 border border-white/5">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Hostel</div>
+                  <div className="text-sm sm:text-base font-bold text-sage font-mono mt-0.5">{student.hostel}</div>
+                </div>
+                <div className="p-2 rounded-xl bg-obsidian-900/80 border border-white/5">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Room</div>
+                  <div className="text-sm sm:text-base font-bold text-white font-mono mt-0.5">{student.room}</div>
+                </div>
+                <div className="p-2 rounded-xl bg-obsidian-900/80 border border-white/5">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Year</div>
+                  <div className="text-xs sm:text-sm font-bold text-gold font-mono mt-1">{student.academic_year}</div>
+                </div>
               </div>
             </div>
           )}
+
+          <div className="text-[11px] text-slate-400 pt-2 border-t border-white/5 flex items-center justify-between">
+            <span>Contact Number</span>
+            <span className="font-mono text-slate-200 font-semibold">{student?.contact || '--'}</span>
+          </div>
         </div>
 
-        {/* Card 2: Remaining Cycle Donut Chart (Expanded) */}
+        {/* Card 2: Remaining Cycle Donut Chart (Compact) */}
         {student && (() => {
           const total = student.quota || 30
           const remaining = Math.max(0, student.cycle_remaining ?? 0)
-          const radius = 46
+          const radius = 34
           const circumference = 2 * Math.PI * radius
           const remainingRatio = total > 0 ? remaining / total : 0
           const strokeDashoffset = circumference * (1 - remainingRatio)
 
           return (
-            <div className="glass-panel p-5 sm:p-6 rounded-3xl border-white/10 shadow-glass flex items-center justify-around gap-6">
-              {/* Large Circular Donut Ring */}
-              <div className="relative w-32 h-32 sm:w-36 sm:h-36 flex items-center justify-center shrink-0">
-                <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 110 110">
+            <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex items-center justify-between gap-4">
+              {/* Circular Donut Ring */}
+              <div className="relative w-24 h-24 flex items-center justify-center shrink-0">
+                <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 84 84">
                   {/* Background circle */}
                   <circle
-                    cx="55"
-                    cy="55"
+                    cx="42"
+                    cy="42"
                     r={radius}
                     className="text-white/10"
-                    strokeWidth="10"
+                    strokeWidth="8"
                     stroke="currentColor"
                     fill="transparent"
                   />
                   {/* Progress ring */}
                   <circle
-                    cx="55"
-                    cy="55"
+                    cx="42"
+                    cy="42"
                     r={radius}
                     className="text-sage transition-all duration-700 ease-out"
-                    strokeWidth="10"
+                    strokeWidth="8"
                     strokeDasharray={circumference}
                     strokeDashoffset={strokeDashoffset}
                     strokeLinecap="round"
@@ -297,29 +312,29 @@ function StudentDashboardContent() {
                 </svg>
                 {/* Inside Center: Remaining Cycles */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                  <span className="text-3xl sm:text-4xl font-black font-mono text-sage leading-none">
+                  <span className="text-2xl font-black font-mono text-sage leading-none">
                     {remaining}
                   </span>
-                  <span className="text-[10px] uppercase tracking-wider text-slate-400 font-extrabold mt-1.5">
+                  <span className="text-[8px] uppercase tracking-wider text-slate-400 font-extrabold mt-0.5">
                     Remaining
                   </span>
                 </div>
               </div>
 
               {/* Quota details */}
-              <div className="space-y-2 text-xs flex-1">
-                <div className="flex items-center justify-between gap-4 font-semibold">
-                  <span className="text-slate-300">8-Month Burn</span>
-                  <span className="text-gold font-mono text-sm">{student.burn_percentage}%</span>
+              <div className="space-y-1.5 text-xs flex-1">
+                <div className="flex items-center justify-between font-semibold">
+                  <span className="text-slate-300 text-[11px]">8-Month Burn</span>
+                  <span className="text-gold font-mono text-xs">{student.burn_percentage}%</span>
                 </div>
-                {/* Progress bar */}
-                <div className="w-full h-2 rounded-full bg-obsidian-950 overflow-hidden border border-white/10">
+                {/* Compact Progress bar */}
+                <div className="w-full h-1.5 rounded-full bg-obsidian-950 overflow-hidden border border-white/10">
                   <div
                     className="h-full bg-gradient-to-r from-sage to-gold transition-all duration-500"
                     style={{ width: `${Math.min(100, student.burn_percentage)}%` }}
                   ></div>
                 </div>
-                <div className="flex justify-between text-[11px] text-slate-400 pt-0.5">
+                <div className="flex justify-between text-[10px] text-slate-400 pt-0.5">
                   <span>Used: <strong className="text-white font-mono">{student.cycle_used}</strong></span>
                   <span>Quota: <strong className="text-slate-300 font-mono">{student.quota}</strong></span>
                 </div>
@@ -327,6 +342,67 @@ function StudentDashboardContent() {
             </div>
           )
         })()}
+
+        {/* Card 3: Current Laundry Cycle Status */}
+        <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex flex-col justify-between space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Current Laundry Cycle</span>
+            {activeWashOrder ? (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gold/20 text-gold uppercase border border-gold/30">
+                {activeWashOrder.Status}
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/5 text-slate-400 uppercase border border-white/10">
+                Idle
+              </span>
+            )}
+          </div>
+
+          <div>
+            {activeWashOrder ? (
+              <div className="space-y-1">
+                <div className="text-base font-bold text-white tracking-tight flex items-center gap-1.5">
+                  <span>{activeWashOrder.Status === 'Ready for Pickup' ? 'Ready for Pick Up' : activeWashOrder.Status === 'In Wash' ? 'Washing in Progress' : 'Order Submitted'}</span>
+                </div>
+                <div className="text-xs text-slate-300">
+                  Order <span className="font-mono text-gold font-semibold">#{activeWashOrder.Transaction_ID}</span> &bull; {activeWashOrder.Total_Weight} kg
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  Drop Point: <strong className="text-slate-200">{activeWashOrder.drop_point_location || activeWashOrder.Drop_Point_ID}</strong>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <div className="text-base font-bold text-slate-300 tracking-tight">
+                  No Active Cycle
+                </div>
+                <p className="text-xs text-slate-400">
+                  All previous laundry loads completed and picked up.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="pt-2 border-t border-white/5 flex items-center justify-between text-xs">
+            {activeWashOrder ? (
+              <button
+                onClick={() => setActiveTab('history')}
+                className="text-gold hover:text-white font-semibold transition-colors flex items-center gap-1 text-[11px]"
+              >
+                <span>Track in History</span>
+                <span>&rarr;</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setActiveTab('dropoff')}
+                className="text-sage hover:text-white font-semibold transition-colors flex items-center gap-1 text-[11px]"
+              >
+                <span>Drop Off New Load</span>
+                <span>&rarr;</span>
+              </button>
+            )}
+          </div>
+        </div>
       </section>
 
       {/* Navigation Tabs */}
