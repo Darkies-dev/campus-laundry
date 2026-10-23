@@ -332,51 +332,76 @@ function StudentDashboardContent() {
         })()}
 
         {/* Card 3: Current Laundry Cycle Status */}
-        <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex flex-col justify-between">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Current Laundry Cycle</span>
-            {activeWashOrder ? (
-              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-gold/20 text-gold uppercase border border-gold/30">
-                {activeWashOrder.Status}
-              </span>
-            ) : (
-              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/5 text-slate-400 uppercase border border-white/10 font-mono">
-                IDLE
-              </span>
-            )}
-          </div>
+        {(() => {
+          const activeOrderMatch = studentOrders.find(
+            (o) => o.Transaction_ID === activeWashOrder?.Transaction_ID
+          )
+          const dropPointId =
+            activeWashOrder?.Drop_Point_ID ||
+            activeOrderMatch?.Drop_Point_ID ||
+            'DP01'
+          const matchedKiosk = kiosks.find((k) => k.Drop_Point_ID === dropPointId)
+          const activeDropLocation =
+            activeWashOrder?.drop_point_location ||
+            activeOrderMatch?.drop_point_location ||
+            matchedKiosk?.Location ||
+            dropPointId
 
-          <div className="my-auto py-3 text-center flex flex-col items-center justify-center">
-            {activeWashOrder ? (
-              <div className="space-y-2 w-full">
-                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                  {activeWashOrder.Status === 'Ready for Pickup'
-                    ? 'Ready for Pick Up'
-                    : activeWashOrder.Status === 'In Wash'
-                    ? 'Washing in Progress'
-                    : activeWashOrder.Status === 'Submitted'
-                    ? 'Order Submitted'
-                    : activeWashOrder.Status}
-                </div>
-                <div className="text-sm sm:text-base text-slate-300 font-medium">
-                  Order <span className="font-mono text-gold font-bold text-base sm:text-lg">#{activeWashOrder.Transaction_ID}</span> &bull; <span className="font-mono text-white font-bold">{activeWashOrder.Total_Weight} kg</span>
-                </div>
-                <div className="text-xs sm:text-sm text-slate-400 pt-0.5">
-                  Drop Point: <strong className="text-slate-200 font-semibold">{activeWashOrder.drop_point_location || activeWashOrder.Drop_Point_ID}</strong>
-                </div>
+          const defaultDropLocation =
+            kiosks.find((k) => k.Location === student?.hostel)?.Location ||
+            (kiosks.length > 0 ? `${kiosks[0].Location} Kiosk` : 'Hostel Drop Point')
+
+          return (
+            <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Current Laundry Cycle</span>
+                {activeWashOrder ? (
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-gold/20 text-gold uppercase border border-gold/30">
+                    {activeWashOrder.Status}
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/5 text-slate-400 uppercase border border-white/10 font-mono">
+                    IDLE
+                  </span>
+                )}
               </div>
-            ) : (
-              <div className="space-y-2 w-full">
-                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                  No Active Cycle
-                </div>
-                <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-xs mx-auto">
-                  All previous laundry loads completed and picked up.
-                </p>
+
+              <div className="my-auto py-3 text-center flex flex-col items-center justify-center">
+                {activeWashOrder ? (
+                  <div className="space-y-2 w-full">
+                    <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                      {activeWashOrder.Status === 'Ready for Pickup'
+                        ? 'Ready for Pick Up'
+                        : activeWashOrder.Status === 'In Wash'
+                        ? 'Washing in Progress'
+                        : activeWashOrder.Status === 'Submitted'
+                        ? 'Order Submitted'
+                        : activeWashOrder.Status}
+                    </div>
+                    <div className="text-sm sm:text-base text-slate-300 font-medium">
+                      Order <span className="font-mono text-gold font-bold text-base sm:text-lg">#{activeWashOrder.Transaction_ID}</span> &bull; <span className="font-mono text-white font-bold">{activeWashOrder.Total_Weight} kg</span>
+                    </div>
+                    <div className="text-xs sm:text-sm text-slate-300 pt-1">
+                      Drop Point: <strong className="text-sage font-bold font-mono text-sm sm:text-base">{activeDropLocation}</strong>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2 w-full">
+                    <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                      No Active Cycle
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-xs mx-auto">
+                      All previous laundry loads completed and picked up.
+                    </p>
+                    <div className="text-xs sm:text-sm text-slate-300 pt-1">
+                      Drop Point: <strong className="text-sage font-bold font-mono">{defaultDropLocation}</strong>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          )
+        })()}
       </section>
 
       {/* Navigation Tabs */}
@@ -389,7 +414,7 @@ function StudentDashboardContent() {
               : 'text-slate-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span>🧺 New Wash Request</span>
+          <span>New Wash Request</span>
         </button>
         <button
           onClick={() => setActiveTab('history')}
@@ -399,7 +424,7 @@ function StudentDashboardContent() {
               : 'text-slate-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span>📋 Last 10 Washes</span>
+          <span>Last 10 Washes</span>
           <span className="px-1.5 py-0.2 rounded-md bg-white/10 text-[10px] font-mono">
             {studentOrders.length}
           </span>
