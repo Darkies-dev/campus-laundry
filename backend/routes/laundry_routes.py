@@ -56,26 +56,18 @@ def get_student_quota(std_id):
     conn = get_connection()
     try:
         cur = conn.cursor(dictionary=True)
-        # 1. Execute safe parameter-bound query against MySQL VIEW for top 3 overview cards
-        cur.execute("SELECT * FROM vw_student_portal_overview WHERE std_id = %s", (clean_id,))
-        overview = cur.fetchone()
+        # Execute Stored Procedure sp_GetStudentPortalData:
+        # Returns 2 result sets in 1 single network round-trip:
+        #   Result Set 1: Overview Cards (from vw_student_portal_overview)
+        #   Result Set 2: Recent 10 Laundry Orders
+        cur.callproc("sp_GetStudentPortalData", (clean_id,))
+        results = [res.fetchall() for res in cur.stored_results()]
+
+        overview = results[0][0] if results and results[0] else None
         if not overview:
             return jsonify({"success": False, "error": f"Student '{clean_id}' not found."}), 404
 
-        # 2. Fetch recent orders for history tab
-        cur.execute(
-            """
-            SELECT t.*, dp.Location as drop_point_location, v.Vendor_Name as vendor_name
-            FROM laundry_transaction t
-            JOIN drop_point dp ON t.Drop_Point_ID = dp.Drop_Point_ID
-            JOIN vendor v ON t.Vendor_ID = v.Vendor_ID
-            WHERE t.std_id = %s
-            ORDER BY t.Drop_Off_Date DESC, t.Transaction_ID DESC
-            LIMIT 10
-            """,
-            (clean_id,)
-        )
-        recent_orders = cur.fetchall() or []
+        recent_orders = results[1] if len(results) > 1 else []
     finally:
         cur.close()
         conn.close()

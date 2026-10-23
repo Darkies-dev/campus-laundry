@@ -155,4 +155,47 @@ FROM vw_student_profile p
 JOIN vw_student_quota_burn q ON p.std_id = q.std_id
 LEFT JOIN vw_student_active_cycle a ON p.std_id = a.std_id;
 
+-- ========================================================================
+-- 9. STORED PROCEDURES
+-- ========================================================================
+
+-- Procedure: sp_GetStudentPortalData
+-- Executes in a single network round-trip, returning two result sets:
+--   1. Top 3 Dashboard Overview Cards (Profile, Quota Burn, and Active Wash from Views)
+--   2. Recent 10 Laundry Orders with resolved Drop Point & Vendor information
+DELIMITER //
+
+DROP PROCEDURE IF EXISTS sp_GetStudentPortalData //
+
+CREATE PROCEDURE sp_GetStudentPortalData(IN p_std_id VARCHAR(20))
+BEGIN
+    -- Result Set 1: Student Overview Cards (from vw_student_portal_overview)
+    SELECT * 
+    FROM vw_student_portal_overview 
+    WHERE std_id = p_std_id;
+
+    -- Result Set 2: Recent 10 Laundry Orders with Drop Point & Vendor info
+    SELECT 
+        t.Transaction_ID,
+        t.std_id,
+        t.Drop_Point_ID,
+        dp.Location AS drop_point_location,
+        t.Vendor_ID,
+        v.Vendor_Name AS vendor_name,
+        t.Drop_Off_Date,
+        t.Expected_Completion_Date,
+        t.Total_Weight,
+        t.Cycles_Deducted,
+        t.Status
+    FROM laundry_transaction t
+    JOIN drop_point dp ON t.Drop_Point_ID = dp.Drop_Point_ID
+    JOIN vendor v ON t.Vendor_ID = v.Vendor_ID
+    WHERE t.std_id = p_std_id
+    ORDER BY t.Drop_Off_Date DESC, t.Transaction_ID DESC
+    LIMIT 10;
+END //
+
+DELIMITER ;
+
+
 
