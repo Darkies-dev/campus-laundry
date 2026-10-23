@@ -557,38 +557,96 @@ export default function AdminDashboardPage() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-obsidian-900 sticky top-0 border-b border-white/10 text-slate-300">
                     <tr>
-                      {Object.keys(tableData[0]).map((col) => (
-                        <th key={col} className="py-2.5 px-3 font-mono font-bold uppercase tracking-wider text-[11px]">
-                          {col}
-                        </th>
-                      ))}
+                      {(() => {
+                        if (tableData.length === 0) return null
+                        const allCols = Object.keys(tableData[0])
+                        if (selectedTable === 'students') {
+                          // Requested order: reg no, name, year, block(hostel), room, contact, quota, cycle used, cycle remaining
+                          const desiredOrder = [
+                            'std_id',
+                            'std_name',
+                            'academic_year',
+                            'hostel',
+                            'room',
+                            'contact',
+                            'quota',
+                            'cycle_used',
+                            'cycle_remaining',
+                          ]
+                          const ordered = desiredOrder.filter((c) => allCols.includes(c))
+                          const remaining = allCols.filter((c) => !desiredOrder.includes(c))
+                          return [...ordered, ...remaining]
+                        }
+                        return allCols
+                      })()?.map((col) => {
+                        const labels: Record<string, string> = {
+                          std_id: 'REG NO',
+                          std_name: 'NAME',
+                          academic_year: 'YEAR',
+                          hostel: 'BLOCK',
+                          room: 'ROOM',
+                          contact: 'CONTACT',
+                          quota: 'QUOTA',
+                          cycle_used: 'CYCLE USED',
+                          cycle_remaining: 'CYCLE REMAINING',
+                        }
+                        return (
+                          <th key={col} className="py-2.5 px-3 font-mono font-bold uppercase tracking-wider text-[11px]">
+                            {labels[col] || col}
+                          </th>
+                        )
+                      })}
                       <th className="py-2.5 px-3 text-right font-mono font-bold uppercase tracking-wider text-[11px]">
                         Edit
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5 bg-obsidian-950/60">
-                    {tableData.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-white/5 transition-colors">
-                        {Object.entries(row).map(([k, val]: [string, any], vIdx) => (
-                          <td key={vIdx} className="py-2.5 px-3 font-mono text-slate-300">
-                            {val === null || val === undefined ? (
-                              <span className="text-slate-600">NULL</span>
-                            ) : (
-                              String(val)
-                            )}
+                    {tableData.map((row, idx) => {
+                      const allCols = Object.keys(row)
+                      let displayCols = allCols
+                      if (selectedTable === 'students') {
+                        const desiredOrder = [
+                          'std_id',
+                          'std_name',
+                          'academic_year',
+                          'hostel',
+                          'room',
+                          'contact',
+                          'quota',
+                          'cycle_used',
+                          'cycle_remaining',
+                        ]
+                        const ordered = desiredOrder.filter((c) => allCols.includes(c))
+                        const remaining = allCols.filter((c) => !desiredOrder.includes(c))
+                        displayCols = [...ordered, ...remaining]
+                      }
+
+                      return (
+                        <tr key={idx} className="hover:bg-white/5 transition-colors">
+                          {displayCols.map((colKey, vIdx) => {
+                            const val = row[colKey]
+                            return (
+                              <td key={vIdx} className="py-2.5 px-3 font-mono text-slate-300">
+                                {val === null || val === undefined ? (
+                                  <span className="text-slate-600">NULL</span>
+                                ) : (
+                                  String(val)
+                                )}
+                              </td>
+                            )
+                          })}
+                          <td className="py-2.5 px-3 text-right">
+                            <button
+                              onClick={() => handleOpenEdit(row)}
+                              className="px-2.5 py-1 rounded bg-gold/15 text-gold border border-gold/30 hover:bg-gold/25 font-semibold text-[11px] transition-colors"
+                            >
+                              Edit
+                            </button>
                           </td>
-                        ))}
-                        <td className="py-2.5 px-3 text-right">
-                          <button
-                            onClick={() => handleOpenEdit(row)}
-                            className="px-2.5 py-1 rounded bg-gold/15 text-gold border border-gold/30 hover:bg-gold/25 font-semibold text-[11px] transition-colors"
-                          >
-                            Edit
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
