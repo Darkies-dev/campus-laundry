@@ -1,7 +1,28 @@
 import re
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
-from database import execute_query, execute_procedure, DatabaseTransaction
+import time
+from database import execute_query, execute_procedure, DatabaseTransaction, get_connection
+
+# In-Memory Response Cache for high-performance sub-second loads
+_CACHE = {}
+
+def get_from_cache(key, ttl_seconds):
+    entry = _CACHE.get(key)
+    if entry and (time.time() - entry['time'] < ttl_seconds):
+        return entry['data']
+    return None
+
+def set_cache(key, data):
+    _CACHE[key] = {'data': data, 'time': time.time()}
+
+def invalidate_cache(key_prefix=None):
+    if key_prefix is None:
+        _CACHE.clear()
+    else:
+        keys_to_del = [k for k in _CACHE if k.startswith(key_prefix)]
+        for k in keys_to_del:
+            _CACHE.pop(k, None)
 
 laundry_bp = Blueprint("laundry", __name__, url_prefix="/api")
 
@@ -26,13 +47,36 @@ def generate_id(table, id_col, prefix=""):
 # --- 1. Student Quota & 8-Month Academic Pace ---
 @laundry_bp.route("/student/<std_id>", methods=["GET"])
 def get_student_quota(std_id):
-    student = execute_query(
-        "SELECT * FROM students WHERE std_id = %s",
-        (std_id.strip().upper(),),
-        fetchone=True
-    )
-    if not student:
-        return jsonify({"success": False, "error": f"Student '{std_id}' not found."}), 404
+    clean_id = std_id.strip().upper()
+    cache_key = f"student_{clean_id}"
+    cached = get_from_cache(cache_key, ttl_seconds=15)
+    if cached is not None:
+        return jsonify(cached)
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute("SELECT * FROM students WHERE std_id = %s", (clean_id,))
+        student = cur.fetchone()
+        if not student:
+            return jsonify({"success": False, "error": f"Student '{clean_id}' not found."}), 404
+
+        cur.execute(
+            """
+            SELECT t.*, dp.Location as drop_point_location, v.Vendor_Name as vendor_name
+            FROM laundry_transaction t
+            JOIN drop_point dp ON t.Drop_Point_ID = dp.Drop_Point_ID
+            JOIN vendor v ON t.Vendor_ID = v.Vendor_ID
+            WHERE t.std_id = %s
+            ORDER BY t.Drop_Off_Date DESC, t.Transaction_ID DESC
+            LIMIT 10
+            """,
+            (clean_id,)
+        )
+        recent_orders = cur.fetchall() or []
+    finally:
+        cur.close()
+        conn.close()
 
     # Calculate 8-month academic pace
     quota = student.get("quota") or TOTAL_QUOTA_CYCLES
@@ -55,37 +99,34 @@ def get_student_quota(std_id):
         pace_status = "Optimal Pace"
         pace_color = "sage"
 
-    # Fetch last 10 student orders
-    recent_orders = execute_query(
-        """
-        SELECT t.*, dp.Location as drop_point_location, v.Vendor_Name as vendor_name
-        FROM laundry_transaction t
-        JOIN drop_point dp ON t.Drop_Point_ID = dp.Drop_Point_ID
-        JOIN vendor v ON t.Vendor_ID = v.Vendor_ID
-        WHERE t.std_id = %s
-        ORDER BY t.Drop_Off_Date DESC, t.Transaction_ID DESC
-        LIMIT 10
-        """,
-        (std_id.strip().upper(),),
-        fetchall=True
-    )
+    # Derive active wash directly from recent_orders (no extra slow query)
+    active_wash = next((o for o in recent_orders if o.get("Status") not in ("Completed", "Cancelled")), None)
 
-    # Check if student has an active/pending wash that has not been completed/returned
-    active_wash = execute_query(
-        """
-        SELECT t.Transaction_ID, t.Status, t.Drop_Off_Date, t.Expected_Completion_Date, t.Total_Weight,
-               t.Drop_Point_ID, dp.Location as drop_point_location
-        FROM laundry_transaction t
-        LEFT JOIN drop_point dp ON t.Drop_Point_ID = dp.Drop_Point_ID
-        WHERE t.std_id = %s AND t.Status NOT IN ('Completed', 'Cancelled')
-        ORDER BY t.Drop_Off_Date DESC, t.Transaction_ID DESC
-        LIMIT 1
-        """,
-        (std_id.strip().upper(),),
-        fetchone=True
-    )
+    # Sanitize Decimal/Date for JSON serialization
+    clean_orders = []
+    for r in recent_orders:
+        item = {}
+        for k, v in r.items():
+            if hasattr(v, "isoformat"):
+                item[k] = v.isoformat()
+            elif hasattr(v, "__float__") and not isinstance(v, (int, float)):
+                item[k] = float(v)
+            else:
+                item[k] = v
+        clean_orders.append(item)
 
-    return jsonify({
+    clean_active = None
+    if active_wash:
+        clean_active = {}
+        for k, v in active_wash.items():
+            if hasattr(v, "isoformat"):
+                clean_active[k] = v.isoformat()
+            elif hasattr(v, "__float__") and not isinstance(v, (int, float)):
+                clean_active[k] = float(v)
+            else:
+                clean_active[k] = v
+
+    response_data = {
         "success": True,
         "student": {
             "std_id": student["std_id"],
@@ -106,10 +147,12 @@ def get_student_quota(std_id):
                 "pace_color": pace_color
             }
         },
-        "recent_orders": recent_orders or [],
-        "active_order": active_wash,
+        "recent_orders": clean_orders,
+        "active_order": clean_active,
         "can_submit_new": cycle_remaining > 0
-    })
+    }
+    set_cache(cache_key, response_data)
+    return jsonify(response_data)
 
 # --- 1b. Register Student with Registration Number ---
 @laundry_bp.route("/students", methods=["POST"])
@@ -152,6 +195,10 @@ def register_student():
 # --- 2. Kiosk Drop Point Selection ---
 @laundry_bp.route("/kiosks", methods=["GET"])
 def get_kiosks():
+    cached = get_from_cache("kiosks", ttl_seconds=120)
+    if cached is not None:
+        return jsonify({"success": True, "kiosks": cached})
+
     kiosks = execute_query(
         """
         SELECT dp.Drop_Point_ID, dp.Location, dp.Operational_Status,
@@ -162,23 +209,42 @@ def get_kiosks():
         """,
         fetchall=True
     )
-    return jsonify({"success": True, "kiosks": kiosks or []})
+    clean = []
+    for r in (kiosks or []):
+        item = {}
+        for k, v in r.items():
+            item[k] = float(v) if hasattr(v, '__float__') and not isinstance(v, (int, float)) else v
+        clean.append(item)
+    set_cache("kiosks", clean)
+    return jsonify({"success": True, "kiosks": clean})
 
 # --- 3. Laundry Items & 6kg Per-Cycle Cap Specs ---
 @laundry_bp.route("/items", methods=["GET"])
 def get_laundry_items():
+    cached = get_from_cache("items", ttl_seconds=120)
+    if cached is not None:
+        return jsonify(cached)
+
     items = execute_query(
         "SELECT Item_ID, Item_Name, Category, Standard_Weight FROM laundry_item ORDER BY Category ASC, Item_Name ASC",
         fetchall=True
     )
-    return jsonify({
+    clean = []
+    for r in (items or []):
+        item = {}
+        for k, v in r.items():
+            item[k] = float(v) if hasattr(v, '__float__') and not isinstance(v, (int, float)) else v
+        clean.append(item)
+    resp = {
         "success": True,
-        "items": items or [],
+        "items": clean,
         "cycle_policy": {
             "standard_cap_kg": CYCLE_WEIGHT_CAP_KG,
             "turnaround_days": DEFAULT_TURNAROUND_DAYS
         }
-    })
+    }
+    set_cache("items", resp)
+    return jsonify(resp)
 
 # --- 4. New Drop-off Submission (Quota & Weight Calc) ---
 @laundry_bp.route("/drop-off", methods=["POST"])
@@ -307,6 +373,7 @@ def submit_drop_off():
 
     # Return Result
     updated_student = execute_query("SELECT cycle_remaining, cycle_used, quota FROM students WHERE std_id = %s", (std_id,), fetchone=True)
+    invalidate_cache()
 
     return jsonify({
         "success": True,
@@ -425,16 +492,42 @@ def update_status(txn_id):
         (new_status, str(txn_id)),
         commit=True
     )
+    invalidate_cache()
 
     return jsonify({"success": True, "message": f"Transaction #{txn_id} status updated to '{new_status}'."})
 
 # --- 7. Campus Dashboard Overview (Powered by sp_GetHostelDashboardMetrics) ---
 @laundry_bp.route("/dashboard", methods=["GET"])
 def get_dashboard_metrics():
-    # Call stored procedure sp_GetHostelDashboardMetrics for high-performance single query
-    rows = execute_procedure("sp_GetHostelDashboardMetrics")
-    proc_metrics = rows[0] if rows else {}
-    
+    cached = get_from_cache("dashboard", ttl_seconds=8)
+    if cached is not None:
+        return jsonify(cached)
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.callproc("sp_GetHostelDashboardMetrics")
+        rows = []
+        for res in cur.stored_results():
+            rows.extend(res.fetchall())
+        proc_metrics = rows[0] if rows else {}
+
+        cur.execute(
+            """
+            SELECT t.*, s.std_name, s.hostel, s.room, dp.Location as drop_point_location
+            FROM laundry_transaction t
+            JOIN students s ON t.std_id = s.std_id
+            JOIN drop_point dp ON t.Drop_Point_ID = dp.Drop_Point_ID
+            WHERE t.Status NOT IN ('Completed', 'Cancelled')
+            ORDER BY t.Drop_Off_Date DESC, t.Transaction_ID DESC
+            LIMIT 20
+            """
+        )
+        recent_txns = cur.fetchall() or []
+    finally:
+        cur.close()
+        conn.close()
+
     total_txns = int(proc_metrics.get("total_transactions") or 0)
     active_loads = int(proc_metrics.get("active_loads") or 0)
     completed_loads = int(proc_metrics.get("completed_loads") or 0)
@@ -444,21 +537,19 @@ def get_dashboard_metrics():
     total_quota = int(proc_metrics.get("total_campus_quota") or 1)
     utilization_rate = round((float(total_used) / float(total_quota)) * 100, 1) if total_quota else 0
 
-    # Only show active/in-progress orders in the live order stream (exclude Completed and Cancelled)
-    recent_txns = execute_query(
-        """
-        SELECT t.*, s.std_name, s.hostel, s.room, dp.Location as drop_point_location
-        FROM laundry_transaction t
-        JOIN students s ON t.std_id = s.std_id
-        JOIN drop_point dp ON t.Drop_Point_ID = dp.Drop_Point_ID
-        WHERE t.Status NOT IN ('Completed', 'Cancelled')
-        ORDER BY t.Drop_Off_Date DESC, t.Transaction_ID DESC
-        LIMIT 20
-        """,
-        fetchall=True
-    )
+    clean_txns = []
+    for r in recent_txns:
+        item = {}
+        for k, v in r.items():
+            if hasattr(v, "isoformat"):
+                item[k] = v.isoformat()
+            elif hasattr(v, "__float__") and not isinstance(v, (int, float)):
+                item[k] = float(v)
+            else:
+                item[k] = v
+        clean_txns.append(item)
 
-    return jsonify({
+    response_data = {
         "success": True,
         "metrics": {
             "active_loads": active_loads,
@@ -473,5 +564,7 @@ def get_dashboard_metrics():
             "cycle_weight_cap_kg": CYCLE_WEIGHT_CAP_KG,
             "default_turnaround_days": DEFAULT_TURNAROUND_DAYS
         },
-        "recent_transactions": recent_txns or []
-    })
+        "recent_transactions": clean_txns
+    }
+    set_cache("dashboard", response_data)
+    return jsonify(response_data)

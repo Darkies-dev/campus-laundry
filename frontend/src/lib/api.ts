@@ -158,15 +158,35 @@ export async function registerStudent(payload: {
   });
 }
 
+// In-Memory Client Cache for instantaneous navigation
+let _clientKiosks: Kiosk[] | null = null;
+let _clientItems: { items: LaundryItem[]; cycle_policy: any } | null = null;
+let _kiosksTime = 0;
+let _itemsTime = 0;
+const CLIENT_CACHE_TTL = 120000; // 2 minutes
+
 // 2. Fetch Kiosk Drop Points
-export async function fetchKiosks(): Promise<Kiosk[]> {
+export async function fetchKiosks(forceRefresh = false): Promise<Kiosk[]> {
+  const now = Date.now();
+  if (!forceRefresh && _clientKiosks && (now - _kiosksTime < CLIENT_CACHE_TTL)) {
+    return _clientKiosks;
+  }
   const res = await request<{ success: boolean; kiosks: Kiosk[] }>('/kiosks');
+  _clientKiosks = res.kiosks;
+  _kiosksTime = now;
   return res.kiosks;
 }
 
 // 3. Fetch Laundry Items Catalog & Weights
-export async function fetchLaundryItems(): Promise<{ items: LaundryItem[]; cycle_policy: any }> {
-  return await request<{ success: boolean; items: LaundryItem[]; cycle_policy: any }>('/items');
+export async function fetchLaundryItems(forceRefresh = false): Promise<{ items: LaundryItem[]; cycle_policy: any }> {
+  const now = Date.now();
+  if (!forceRefresh && _clientItems && (now - _itemsTime < CLIENT_CACHE_TTL)) {
+    return _clientItems;
+  }
+  const res = await request<{ success: boolean; items: LaundryItem[]; cycle_policy: any }>('/items');
+  _clientItems = res;
+  _itemsTime = now;
+  return res;
 }
 
 // 4. Submit Drop-off with Weight Calculation & Cycle Deduction
