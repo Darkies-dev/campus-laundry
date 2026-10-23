@@ -222,46 +222,39 @@ function StudentDashboardContent() {
       )}
 
       {/* STUDENT PROFILE & REMAINING CYCLE CARDS (SIDE BY SIDE) */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
         {/* Card 1: Student Information */}
-        <div className="glass-panel p-5 sm:p-6 rounded-3xl border-white/10 shadow-glass flex flex-col justify-between space-y-4">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-semibold uppercase tracking-wider text-sage">Student Profile</span>
-              <div className="flex items-center gap-2 bg-obsidian-900 border border-white/10 rounded-xl px-3 py-1.5">
-                <span className="text-xs text-slate-400">Reg No:</span>
-                <span className="text-sm font-bold text-white font-mono tracking-wide">{studentId}</span>
+        <div className="glass-panel p-5 sm:p-6 rounded-3xl border-white/10 shadow-glass flex flex-col justify-center space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-sage">Student Profile</span>
+            <div className="flex items-center gap-2 bg-obsidian-900 border border-white/10 rounded-xl px-3 py-1.5">
+              <span className="text-xs text-slate-400">Reg No:</span>
+              <span className="text-sm font-bold text-white font-mono tracking-wide">{studentId}</span>
+            </div>
+          </div>
+
+          {studentLoading && (
+            <div className="text-xs text-slate-400 animate-pulse">Loading quota records...</div>
+          )}
+
+          {studentError && (
+            <div className="text-xs text-terracotta bg-terracotta/10 px-3 py-1.5 rounded-lg border border-terracotta/20">
+              {studentError}
+            </div>
+          )}
+
+          {student && (
+            <div className="space-y-2">
+              <div className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">{student.std_name}</div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-300">
+                <span>Hostel: <strong className="text-sage">{student.hostel}</strong></span>
+                <span className="text-slate-500">&bull;</span>
+                <span>Room: <strong className="text-white">{student.room}</strong></span>
+                <span className="text-slate-500">&bull;</span>
+                <span>Year: <strong className="text-gold">{student.academic_year}</strong></span>
               </div>
             </div>
-
-            {studentLoading && (
-              <div className="text-xs text-slate-400 animate-pulse">Loading quota records...</div>
-            )}
-
-            {studentError && (
-              <div className="text-xs text-terracotta bg-terracotta/10 px-3 py-1.5 rounded-lg border border-terracotta/20">
-                {studentError}
-              </div>
-            )}
-
-            {student && (
-              <div className="space-y-2 pt-1">
-                <div className="text-lg font-bold text-white tracking-tight">{student.std_name}</div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-300">
-                  <span>Hostel: <strong className="text-sage">{student.hostel}</strong></span>
-                  <span className="text-slate-500">&bull;</span>
-                  <span>Room: <strong className="text-white">{student.room}</strong></span>
-                  <span className="text-slate-500">&bull;</span>
-                  <span>Year: <strong className="text-gold">{student.academic_year}</strong></span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="pt-3 border-t border-white/5 text-[11px] text-slate-400 flex items-center justify-between">
-            <span>Pacing: <strong className="text-white">{student?.academic_policy?.pace_status || 'Normal'}</strong></span>
-            <span>Policy: 30 Cycles/Year</span>
-          </div>
+          )}
         </div>
 
         {/* Card 2: Remaining Cycle Donut Chart (Expanded) */}
