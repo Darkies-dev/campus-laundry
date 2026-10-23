@@ -272,60 +272,62 @@ function StudentDashboardContent() {
           </div>
         </div>
 
-        {/* Card 2: Remaining Cycle Donut Chart (Prominent & Balanced) */}
+        {/* Card 2: Remaining Cycle Donut Chart (50/50 Balanced Split) */}
         {student && (() => {
           const total = student.quota || 30
           const remaining = Math.max(0, student.cycle_remaining ?? 0)
-          const radius = 44
+          const radius = 48
           const circumference = 2 * Math.PI * radius
           const remainingRatio = total > 0 ? remaining / total : 0
           const strokeDashoffset = circumference * (1 - remainingRatio)
 
           return (
-            <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex items-center justify-between gap-5">
-              {/* Prominent Circular Donut Ring */}
-              <div className="relative w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center shrink-0">
-                <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 106 106">
-                  {/* Background circle */}
-                  <circle
-                    cx="53"
-                    cy="53"
-                    r={radius}
-                    className="text-white/10"
-                    strokeWidth="9"
-                    stroke="currentColor"
-                    fill="transparent"
-                  />
-                  {/* Progress ring */}
-                  <circle
-                    cx="53"
-                    cy="53"
-                    r={radius}
-                    className="text-sage transition-all duration-700 ease-out"
-                    strokeWidth="9"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={strokeDashoffset}
-                    strokeLinecap="round"
-                    stroke="currentColor"
-                    fill="transparent"
-                  />
-                </svg>
-                {/* Inside Center: Remaining Cycles */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                  <span className="text-3xl sm:text-4xl font-black font-mono text-sage leading-none">
-                    {remaining}
-                  </span>
-                  <span className="text-[9px] uppercase tracking-wider text-slate-400 font-extrabold mt-1">
-                    Remaining
-                  </span>
+            <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex items-center gap-4">
+              {/* Left Side: Exactly 50% of the card for the circular chart */}
+              <div className="w-1/2 flex items-center justify-center">
+                <div className="relative w-32 h-32 sm:w-36 sm:h-36 flex items-center justify-center">
+                  <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 116 116">
+                    {/* Background circle */}
+                    <circle
+                      cx="58"
+                      cy="58"
+                      r={radius}
+                      className="text-white/10"
+                      strokeWidth="11"
+                      stroke="currentColor"
+                      fill="transparent"
+                    />
+                    {/* Progress ring */}
+                    <circle
+                      cx="58"
+                      cy="58"
+                      r={radius}
+                      className="text-sage transition-all duration-700 ease-out"
+                      strokeWidth="11"
+                      strokeDasharray={circumference}
+                      strokeDashoffset={strokeDashoffset}
+                      strokeLinecap="round"
+                      stroke="currentColor"
+                      fill="transparent"
+                    />
+                  </svg>
+                  {/* Inside Center: Remaining Cycles */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <span className="text-3xl sm:text-4xl font-black font-mono text-sage leading-none">
+                      {remaining}
+                    </span>
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-extrabold mt-1">
+                      Remaining
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Quota details */}
-              <div className="space-y-2 text-xs flex-1">
+              {/* Right Side: Exactly 50% balanced space for metrics */}
+              <div className="w-1/2 space-y-2.5 text-xs pl-1">
                 <div className="flex items-center justify-between font-semibold">
                   <span className="text-slate-300 text-xs">8-Month Burn</span>
-                  <span className="text-gold font-mono text-xs">{student.burn_percentage}%</span>
+                  <span className="text-gold font-mono text-sm">{student.burn_percentage}%</span>
                 </div>
                 {/* Progress bar */}
                 <div className="w-full h-2 rounded-full bg-obsidian-950 overflow-hidden border border-white/10">
@@ -334,7 +336,7 @@ function StudentDashboardContent() {
                     style={{ width: `${Math.min(100, student.burn_percentage)}%` }}
                   ></div>
                 </div>
-                <div className="flex justify-between text-[11px] text-slate-400 pt-0.5">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
                   <span>Used: <strong className="text-white font-mono">{student.cycle_used}</strong></span>
                   <span>Quota: <strong className="text-slate-300 font-mono">{student.quota}</strong></span>
                 </div>
