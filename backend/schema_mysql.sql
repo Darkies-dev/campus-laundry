@@ -72,9 +72,55 @@ CREATE TABLE IF NOT EXISTS transaction_item (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ========================================================================
--- 7. STUDENT PORTAL OVERVIEW VIEW
--- Aggregates profile, 8-month quota pace, and current active wash status
--- into a single high-performance query for the Student Dashboard
+-- 7. MODULAR VIEWS FOR STUDENT PORTAL (3 DISTINCT VIEWS)
+-- ========================================================================
+
+-- View 1: Student Demographics & Academic Profile (Card 1)
+CREATE OR REPLACE VIEW vw_student_profile AS
+SELECT 
+    std_id,
+    std_name,
+    contact,
+    hostel,
+    room,
+    academic_year
+FROM students;
+
+-- View 2: Quota & 8-Month Burn Analytics (Card 2)
+CREATE OR REPLACE VIEW vw_student_quota_burn AS
+SELECT 
+    std_id,
+    quota,
+    cycle_used,
+    cycle_remaining,
+    ROUND((cycle_used / quota) * 100, 1) AS burn_percentage,
+    CASE 
+        WHEN cycle_remaining <= 0 THEN 'Quota Exhausted'
+        WHEN cycle_remaining <= 5 THEN 'Critical (Low Quota)'
+        WHEN (cycle_used / quota) * 100 > 70 THEN 'Accelerated Burn'
+        ELSE 'Optimal Pace'
+    END AS pace_status
+FROM students;
+
+-- View 3: Live In-Progress Wash Cycle (Card 3)
+CREATE OR REPLACE VIEW vw_student_active_cycle AS
+SELECT 
+    t.std_id,
+    t.Transaction_ID,
+    t.Status,
+    t.Total_Weight,
+    t.Drop_Point_ID,
+    dp.Location AS drop_point_location,
+    t.Drop_Off_Date,
+    t.Expected_Completion_Date
+FROM laundry_transaction t
+LEFT JOIN drop_point dp ON t.Drop_Point_ID = dp.Drop_Point_ID
+WHERE t.Status NOT IN ('Completed', 'Cancelled');
+
+-- ========================================================================
+-- 8. CONSOLIDATED STUDENT PORTAL VIEW (HIGH-PERFORMANCE COMPOSITE)
+-- Aggregates the 3 modular views into a single sub-second query for the web dashboard,
+-- eliminating multi-hop network round-trips over cloud SSL connections.
 -- ========================================================================
 CREATE OR REPLACE VIEW vw_student_portal_overview AS
 SELECT 
@@ -114,4 +160,5 @@ LEFT JOIN (
     LEFT JOIN drop_point dp ON t.Drop_Point_ID = dp.Drop_Point_ID
     WHERE t.Status NOT IN ('Completed', 'Cancelled')
 ) act ON s.std_id = act.std_id AND act.rn = 1;
+
 
