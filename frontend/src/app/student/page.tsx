@@ -257,39 +257,73 @@ function StudentDashboardContent() {
             )}
           </div>
 
-          {/* Quota Gauge */}
-          {student && (
-            <div className="flex items-center gap-6 bg-obsidian-900/60 p-4 rounded-2xl border border-white/5">
-              <div className="text-center">
-                <div className="text-3xl sm:text-4xl font-extrabold text-sage font-mono">
-                  {student.cycle_remaining}
+          {/* Quota Donut Ring Chart */}
+          {student && (() => {
+            const total = student.quota || 30
+            const remaining = Math.max(0, student.cycle_remaining ?? 0)
+            const radius = 38
+            const circumference = 2 * Math.PI * radius
+            const remainingRatio = total > 0 ? remaining / total : 0
+            const strokeDashoffset = circumference * (1 - remainingRatio)
+
+            return (
+              <div className="flex items-center gap-5 bg-obsidian-900/60 p-4 rounded-2xl border border-white/5">
+                {/* Circular Donut Ring */}
+                <div className="relative w-24 h-24 flex items-center justify-center shrink-0">
+                  <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 96 96">
+                    {/* Background circle */}
+                    <circle
+                      cx="48"
+                      cy="48"
+                      r={radius}
+                      className="text-white/10"
+                      strokeWidth="8"
+                      stroke="currentColor"
+                      fill="transparent"
+                    />
+                    {/* Progress ring */}
+                    <circle
+                      cx="48"
+                      cy="48"
+                      r={radius}
+                      className="text-sage transition-all duration-700 ease-out"
+                      strokeWidth="8"
+                      strokeDasharray={circumference}
+                      strokeDashoffset={strokeDashoffset}
+                      strokeLinecap="round"
+                      stroke="currentColor"
+                      fill="transparent"
+                    />
+                  </svg>
+                  {/* Inside Center: Remaining Cycles */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <span className="text-2xl font-black font-mono text-sage leading-none">
+                      {remaining}
+                    </span>
+                    <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold mt-1">
+                      Remaining
+                    </span>
+                  </div>
                 </div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
-                  Remaining
+
+                {/* Quota details */}
+                <div className="space-y-1 text-xs">
+                  <div className="flex items-center justify-between gap-4 font-semibold">
+                    <span className="text-slate-300">8-Month Burn</span>
+                    <span className="text-gold font-mono">{student.burn_percentage}%</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                    <span>Used: <strong className="text-white font-mono">{student.cycle_used}</strong></span>
+                    <span>&bull;</span>
+                    <span>Quota: <strong className="text-slate-300 font-mono">{student.quota}</strong></span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 pt-0.5">
+                    {remaining} of {total} cycles available
+                  </div>
                 </div>
               </div>
-
-              <div className="h-10 w-px bg-white/10"></div>
-
-              <div className="space-y-1.5 min-w-[160px]">
-                <div className="flex justify-between text-xs font-semibold">
-                  <span className="text-slate-300">8-Month Burn</span>
-                  <span className="text-gold font-mono">{student.burn_percentage}%</span>
-                </div>
-                {/* Progress bar */}
-                <div className="w-full h-2 rounded-full bg-obsidian-950 overflow-hidden border border-white/10">
-                  <div
-                    className="h-full bg-gradient-to-r from-sage to-gold transition-all duration-500"
-                    style={{ width: `${Math.min(100, student.burn_percentage)}%` }}
-                  ></div>
-                </div>
-                <div className="flex justify-between text-[10px] text-slate-400">
-                  <span>{student.cycle_used} used</span>
-                  <span>Quota: {student.quota}</span>
-                </div>
-              </div>
-            </div>
-          )}
+            )
+          })()}
         </div>
       </section>
 
