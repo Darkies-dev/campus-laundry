@@ -173,16 +173,17 @@ def register_student():
     if existing:
         return jsonify({"success": False, "error": f"Registration Number '{std_id}' is already registered."}), 400
 
-    clean_contact = re.sub(r'\D', '', str(contact)) or 0
+    clean_contact = int(re.sub(r'\D', '', str(contact)) or 0)
     execute_query(
         """
         INSERT INTO students (std_id, std_name, contact, hostel, room, academic_year, quota, cycle_used, cycle_remaining)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, 0, %s)
         """,
-        (std_id, std_name, int(clean_contact), hostel, room, academic_year, quota, 0, quota),
+        (std_id, std_name, clean_contact, hostel, room, academic_year, quota, quota),
         commit=True
     )
-    return jsonify({"success": True, "message": f"Student '{std_name}' ({std_id}) registered with 30-cycle quota!"})
+    invalidate_cache()
+    return jsonify({"success": True, "message": f"Student '{std_name}' ({std_id}) registered with {quota}-cycle quota!"})
 
 # --- 2. Kiosk Drop Point Selection ---
 @laundry_bp.route("/kiosks", methods=["GET"])
@@ -560,3 +561,27 @@ def get_dashboard_metrics():
     }
     set_cache("dashboard", response_data)
     return jsonify(response_data)
+
+
+# --- 8. Standalone Annual / Semester Quota Reset ---
+@laundry_bp.route("/admin/reset-quota", methods=["POST"])
+def reset_annual_quota():
+    data = request.get_json() or {}
+    new_quota = int(data.get("quota") or TOTAL_QUOTA_CYCLES)
+    
+    # Standalone parameterized UPDATE query
+    execute_query(
+        """
+        UPDATE students
+        SET quota = %s,
+            cycle_remaining = %s,
+            cycle_used = 0
+        """,
+        (new_quota, new_quota),
+        commit=True
+    )
+    invalidate_cache()
+    return jsonify({
+        "success": True,
+        "message": f"All student quotas successfully reset to {new_quota} cycles (0 used)."
+    })

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import {
   fetchDashboard,
   fetchKiosks,
@@ -237,23 +236,6 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Back Button above label */}
-      <div className="flex items-center justify-between gap-4">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-obsidian-900 border border-white/10 text-xs font-medium text-slate-300 hover:text-white hover:border-white/20 transition-all shadow-sm"
-        >
-          <span>&larr;</span>
-          <span>Back</span>
-        </Link>
-        <Link
-          href="/student"
-          className="text-xs px-3 py-1.5 rounded-xl bg-obsidian-900 border border-white/10 text-slate-300 hover:text-white transition-colors"
-        >
-          Open Student View &rarr;
-        </Link>
-      </div>
-
       {/* Section Header Label */}
       <div className="pb-2 border-b border-white/5">
         <h1 className="text-sm font-semibold uppercase tracking-wider text-gold">

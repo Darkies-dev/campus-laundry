@@ -38,9 +38,9 @@ export default function RootLayout({
               </div>
               <a
                 href="/"
-                className="text-xs px-3 py-1.5 rounded-lg bg-obsidian-900 border border-white/10 text-slate-300 hover:text-white transition-colors"
+                className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/40 text-red-400 hover:bg-red-500/20 hover:border-red-500 hover:text-red-300 transition-all shadow-sm"
               >
-                Switch Role
+                Logout
               </a>
             </div>
           </div>

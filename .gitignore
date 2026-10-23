@@ -53,3 +53,8 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Temporary Assets
+avatar.*
+campus_*.png
+
