@@ -375,5 +375,137 @@ END //
 
 DELIMITER ;
 
+-- ========================================================================
+-- 11. SAMPLE SEED DATA (INITIAL DATA POPULATION)
+-- Uses INSERT IGNORE so this script can be executed safely multiple times
+-- ========================================================================
+
+-- 1. Vendors
+INSERT IGNORE INTO vendor (Vendor_ID, Vendor_Name, Contact_No) VALUES
+('VND01', 'Sparkle Wash Services', 9876543210),
+('VND02', 'Campus Cleaners Ltd.', 9123456789);
+
+-- 2. Drop Point Kiosks
+INSERT IGNORE INTO drop_point (Drop_Point_ID, Location, Operational_Status, Vendor_ID) VALUES
+('DP01', 'B1', 'Active', 'VND01'),
+('DP02', 'B11', 'Active', 'VND01'),
+('DP03', 'G1', 'Active', 'VND02'),
+('DP04', 'G5', 'Active', 'VND02');
+
+-- 3. Laundry Clothing Catalog & Standard Unit Weights (Kg)
+INSERT IGNORE INTO laundry_item (Item_ID, Item_Name, Category, Standard_Weight) VALUES
+('ITM01', 'T-Shirt / Shirt', 'Daily Wear', 0.25),
+('ITM02', 'Jeans / Trousers', 'Daily Wear', 0.65),
+('ITM03', 'Bed Sheet (Single)', 'Bedding', 0.60),
+('ITM04', 'Bed Sheet (Double)', 'Bedding', 1.10),
+('ITM05', 'Bath Towel', 'Daily Wear', 0.45),
+('ITM06', 'Pillow Cover', 'Bedding', 0.15),
+('ITM07', 'Sweater / Hoodie', 'Woolen', 0.80),
+('ITM08', 'Blanket / Comforter', 'Bedding', 2.20),
+('ITM09', 'Shorts / Lower', 'Daily Wear', 0.30),
+('ITM10', 'Lab Coat / Uniform', 'Formals', 0.40);
+
+-- 4. Sample Students (Initialized with 30 / 15 Cycle Quotas)
+INSERT IGNORE INTO students (std_id, std_name, contact, hostel, room, academic_year, quota, cycle_used, cycle_remaining) VALUES
+('2502050680', 'Aarav Sharma', 9870011223, 'B10', '205', '2nd Year', 30, 9, 21),
+('2502050112', 'Priya Patel', 9870022334, 'G8', '108', '2nd Year', 30, 12, 18),
+('2602050045', 'Rohan Verma', 9870033445, 'B4', '312', '1st Year', 30, 2, 28),
+('2402050088', 'Ananya Iyer', 9870044556, 'G1', '405', '3rd Year', 30, 29, 1),
+('2502050650', 'Arush Bhalu', 9666666666, 'G4', '699', '2nd Year', 15, 0, 15);
+
+-- 5. Sample Transactions
+INSERT IGNORE INTO laundry_transaction 
+(Transaction_ID, std_id, Drop_Point_ID, Vendor_ID, Drop_Off_Date, Expected_Completion_Date, Total_Weight, Cycles_Deducted, Status)
+VALUES
+('TXN1001', '2502050680', 'DP01', 'VND01', '2026-10-15', '2026-10-18', 5.70, 1, 'Completed'),
+('TXN1002', '2502050680', 'DP01', 'VND01', '2026-10-19', '2026-10-22', 6.10, 1, 'Completed'),
+('TXN1003', '2502050680', 'DP01', 'VND01', '2026-10-23', '2026-10-28', 5.70, 1, 'In Wash');
+
+-- 6. Sample Line Items for Transactions
+INSERT IGNORE INTO transaction_item (Transaction_ID, Item_ID, Quantity) VALUES
+('TXN1001', 'ITM01', 8),
+('TXN1001', 'ITM02', 3),
+('TXN1001', 'ITM05', 2),
+('TXN1001', 'ITM09', 3),
+('TXN1003', 'ITM01', 8),
+('TXN1003', 'ITM02', 3),
+('TXN1003', 'ITM05', 2),
+('TXN1003', 'ITM09', 3);
+
+-- ========================================================================
+-- 12. CORE SYSTEM DML OPERATIONS (INSERT, UPDATE, DELETE EXAMPLES)
+-- Operational queries executed by application workflows
+-- ========================================================================
+
+-- ------------------------------------------------------------------------
+-- A. INSERTION QUERIES (Data Creation)
+-- ------------------------------------------------------------------------
+
+-- 1. Register a new student (Triggers trg_validate_student_insert)
+-- INSERT INTO students (std_id, std_name, contact, hostel, room, academic_year, quota, cycle_used, cycle_remaining)
+-- VALUES ('2502050999', 'Dev Patel', 9898989898, 'B3', '104', '2nd Year', 30, 0, 30);
+
+-- 2. Create a new laundry wash ticket (Triggers trg_set_expected_delivery)
+-- INSERT INTO laundry_transaction 
+-- (Transaction_ID, std_id, Drop_Point_ID, Vendor_ID, Drop_Off_Date, Expected_Completion_Date, Total_Weight, Cycles_Deducted, Status)
+-- VALUES ('TXN1004', '2502050999', 'DP01', 'VND01', '2026-10-24', '2026-10-27', 5.80, 1, 'Submitted');
+
+-- 3. Insert clothing line items into a transaction
+-- INSERT INTO transaction_item (Transaction_ID, Item_ID, Quantity)
+-- VALUES ('TXN1004', 'ITM01', 6), ('TXN1004', 'ITM02', 2), ('TXN1004', 'ITM05', 2);
+
+-- ------------------------------------------------------------------------
+-- B. UPDATION QUERIES (Data Modification)
+-- ------------------------------------------------------------------------
+
+-- 1. Deduct quota upon wash submission
+-- UPDATE students 
+-- SET cycle_used = cycle_used + 1,
+--     cycle_remaining = GREATEST(0, cycle_remaining - 1)
+-- WHERE std_id = '2502050999';
+
+-- 2. Progress wash status: Submitted -> In Wash
+-- UPDATE laundry_transaction 
+-- SET Status = 'In Wash' 
+-- WHERE Transaction_ID = 'TXN1004';
+
+-- 3. Progress wash status: In Wash -> Ready for Pickup (Triggers trg_before_update_laundry_txn auto-completion date)
+-- UPDATE laundry_transaction 
+-- SET Status = 'Ready for Pickup' 
+-- WHERE Transaction_ID = 'TXN1004';
+
+-- 4. Mark wash collected by student
+-- UPDATE laundry_transaction 
+-- SET Status = 'Completed' 
+-- WHERE Transaction_ID = 'TXN1004';
+
+-- 5. Cancel order (Triggers trg_before_update_laundry_txn to automatically refund cycles to the student)
+-- UPDATE laundry_transaction 
+-- SET Status = 'Cancelled' 
+-- WHERE Transaction_ID = 'TXN1004';
+
+-- 6. Annual / Semester Quota Reset across all students
+-- UPDATE students 
+-- SET quota = 30,
+--     cycle_remaining = 30,
+--     cycle_used = 0;
+
+-- ------------------------------------------------------------------------
+-- C. DELETION QUERIES (Data Removal)
+-- ------------------------------------------------------------------------
+
+-- 1. Delete a specific line item from an open transaction
+-- DELETE FROM transaction_item 
+-- WHERE Transaction_ID = 'TXN1004' AND Item_ID = 'ITM01';
+
+-- 2. Delete a cancelled transaction (Cascade deletes its transaction_item rows)
+-- DELETE FROM laundry_transaction 
+-- WHERE Transaction_ID = 'TXN1004';
+
+-- 3. Delete a student on graduation (Foreign key CASCADE deletes all their transactions and line items)
+-- DELETE FROM students 
+-- WHERE std_id = '2502050999';
+
+
 
 
