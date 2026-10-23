@@ -312,7 +312,7 @@ function StudentDashboardContent() {
                     <span className="text-3xl sm:text-4xl font-black font-mono text-sage leading-none">
                       {remaining}
                     </span>
-                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-extrabold mt-1">
+                    <span className="text-xs uppercase tracking-wider text-slate-400 font-extrabold mt-1">
                       Remaining
                     </span>
                   </div>
@@ -320,21 +320,38 @@ function StudentDashboardContent() {
               </div>
 
               {/* Right Side: Exactly 50% balanced space for metrics */}
-              <div className="w-1/2 space-y-2.5 text-xs pl-1">
-                <div className="flex items-center justify-between font-semibold">
-                  <span className="text-slate-300 text-xs">8-Month Burn</span>
-                  <span className="text-gold font-mono text-sm">{student.burn_percentage}%</span>
+              <div className="w-1/2 space-y-3.5 pl-2">
+                <div>
+                  <div className="flex items-baseline justify-between mb-1.5">
+                    <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300">
+                      8-Month Burn
+                    </span>
+                    <span className="text-xl sm:text-2xl font-black font-mono text-white">
+                      {student.burn_percentage}%
+                    </span>
+                  </div>
+                  {/* Progress bar: Solid white, not a gradient */}
+                  <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden border border-white/20">
+                    <div
+                      className="h-full bg-white rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(255,255,255,0.7)]"
+                      style={{ width: `${Math.min(100, student.burn_percentage)}%` }}
+                    ></div>
+                  </div>
                 </div>
-                {/* Progress bar */}
-                <div className="w-full h-2 rounded-full bg-obsidian-950 overflow-hidden border border-white/10">
-                  <div
-                    className="h-full bg-gradient-to-r from-sage to-gold transition-all duration-500"
-                    style={{ width: `${Math.min(100, student.burn_percentage)}%` }}
-                  ></div>
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
-                  <span>Used: <strong className="text-white font-mono">{student.cycle_used}</strong></span>
-                  <span>Quota: <strong className="text-slate-300 font-mono">{student.quota}</strong></span>
+
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
+                  <div>
+                    <div className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Used</div>
+                    <div className="text-xl sm:text-2xl font-mono font-black text-white mt-0.5">
+                      {student.cycle_used}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Quota</div>
+                    <div className="text-xl sm:text-2xl font-mono font-black text-slate-200 mt-0.5">
+                      {student.quota}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
