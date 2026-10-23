@@ -342,62 +342,42 @@ function StudentDashboardContent() {
         })()}
 
         {/* Card 3: Current Laundry Cycle Status */}
-        <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex flex-col justify-between space-y-3">
+        <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Current Laundry Cycle</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Current Laundry Cycle</span>
             {activeWashOrder ? (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gold/20 text-gold uppercase border border-gold/30">
+              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-gold/20 text-gold uppercase border border-gold/30">
                 {activeWashOrder.Status}
               </span>
             ) : (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/5 text-slate-400 uppercase border border-white/10">
-                Idle
+              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/5 text-slate-400 uppercase border border-white/10 font-mono">
+                IDLE
               </span>
             )}
           </div>
 
-          <div>
+          <div className="my-auto py-2">
             {activeWashOrder ? (
-              <div className="space-y-1">
-                <div className="text-base font-bold text-white tracking-tight flex items-center gap-1.5">
+              <div className="space-y-1.5">
+                <div className="text-lg sm:text-xl font-extrabold text-white tracking-tight flex items-center gap-1.5">
                   <span>{activeWashOrder.Status === 'Ready for Pickup' ? 'Ready for Pick Up' : activeWashOrder.Status === 'In Wash' ? 'Washing in Progress' : 'Order Submitted'}</span>
                 </div>
-                <div className="text-xs text-slate-300">
-                  Order <span className="font-mono text-gold font-semibold">#{activeWashOrder.Transaction_ID}</span> &bull; {activeWashOrder.Total_Weight} kg
+                <div className="text-sm text-slate-300 font-medium">
+                  Order <span className="font-mono text-gold font-bold">#{activeWashOrder.Transaction_ID}</span> &bull; {activeWashOrder.Total_Weight} kg
                 </div>
-                <div className="text-[11px] text-slate-400">
+                <div className="text-xs text-slate-400 pt-0.5">
                   Drop Point: <strong className="text-slate-200">{activeWashOrder.drop_point_location || activeWashOrder.Drop_Point_ID}</strong>
                 </div>
               </div>
             ) : (
-              <div className="space-y-1">
-                <div className="text-base font-bold text-slate-300 tracking-tight">
+              <div className="space-y-1.5">
+                <div className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
                   No Active Cycle
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
                   All previous laundry loads completed and picked up.
                 </p>
               </div>
-            )}
-          </div>
-
-          <div className="pt-2 border-t border-white/5 flex items-center justify-between text-xs">
-            {activeWashOrder ? (
-              <button
-                onClick={() => setActiveTab('history')}
-                className="text-gold hover:text-white font-semibold transition-colors flex items-center gap-1 text-[11px]"
-              >
-                <span>Track in History</span>
-                <span>&rarr;</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => setActiveTab('dropoff')}
-                className="text-sage hover:text-white font-semibold transition-colors flex items-center gap-1 text-[11px]"
-              >
-                <span>Drop Off New Load</span>
-                <span>&rarr;</span>
-              </button>
             )}
           </div>
         </div>
