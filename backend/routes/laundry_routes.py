@@ -108,7 +108,7 @@ def get_student_quota(std_id):
         },
         "recent_orders": recent_orders or [],
         "active_order": active_wash,
-        "can_submit_new": active_wash is None
+        "can_submit_new": cycle_remaining > 0
     })
 
 # --- 1b. Register Student with Registration Number ---
@@ -205,24 +205,6 @@ def submit_drop_off():
         return jsonify({
             "success": False,
             "error": "Quota exhausted! Student has 0 cycles remaining for this academic year."
-        }), 400
-
-    # 1b. Check if student already has a pending/active wash request (must be Completed or Cancelled before giving a new request)
-    pending_wash = execute_query(
-        """
-        SELECT Transaction_ID, Status, Drop_Off_Date
-        FROM laundry_transaction
-        WHERE std_id = %s AND Status NOT IN ('Completed', 'Cancelled')
-        ORDER BY Drop_Off_Date DESC, Transaction_ID DESC
-        LIMIT 1
-        """,
-        (std_id,),
-        fetchone=True
-    )
-    if pending_wash:
-        return jsonify({
-            "success": False,
-            "error": f"Active wash in progress (#{pending_wash['Transaction_ID']} - {pending_wash['Status']})! You can only submit a new wash request once your last wash is completed and returned."
         }), 400
 
     # 2. Verify Kiosk Drop Point & Vendor

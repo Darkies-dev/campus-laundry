@@ -121,12 +121,6 @@ function StudentDashboardContent() {
     setSubmitError(null)
     setSubmitResult(null)
 
-    if (!canSubmitNew && activeWashOrder) {
-      setSubmitError(
-        `Active wash #${activeWashOrder.Transaction_ID} is currently ${activeWashOrder.Status}. You must wait until it is Completed and returned before submitting another request.`
-      )
-      return
-    }
     if (totalItemsCount === 0) {
       setSubmitError('Please add at least 1 item to your laundry bag.')
       return
@@ -195,32 +189,6 @@ function StudentDashboardContent() {
           Student Dashboard
         </h1>
       </div>
-
-      {/* ACTIVE WASH WARNING BANNER */}
-      {!canSubmitNew && activeWashOrder && (
-        <div className="p-4 rounded-2xl bg-gold/10 border border-gold/30 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-glass">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl animate-spin">⏳</span>
-            <div>
-              <div className="font-bold text-white text-sm flex items-center gap-2">
-                <span>Wash in Progress: Order #{activeWashOrder.Transaction_ID}</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gold/20 text-gold uppercase border border-gold/30">
-                  {activeWashOrder.Status}
-                </span>
-              </div>
-              <p className="text-slate-400 text-xs mt-0.5">
-                Policy: You cannot submit a new wash until your previous laundry load is marked <strong>Completed &amp; Returned</strong> by the hostel vendor.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setActiveTab('history')}
-            className="px-3 py-1.5 rounded-xl bg-gold/20 text-gold border border-gold/40 hover:bg-gold hover:text-obsidian-950 font-bold transition-all text-xs whitespace-nowrap"
-          >
-            Track in History &rarr;
-          </button>
-        </div>
-      )}
 
       {/* 3 BALANCED OVERVIEW CARDS: PROFILE, QUOTA DONUT, CURRENT CYCLE STATUS */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
@@ -431,7 +399,6 @@ function StudentDashboardContent() {
           }`}
         >
           <span>🧺 New Wash Request</span>
-          {!canSubmitNew && <span className="w-2 h-2 rounded-full bg-gold animate-ping"></span>}
         </button>
         <button
           onClick={() => setActiveTab('history')}
@@ -463,22 +430,8 @@ function StudentDashboardContent() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Item Selector & Bag Builder */}
           <div className="lg:col-span-8 space-y-6">
-            {/* Active Wash Guard Notice if Locked */}
-            {!canSubmitNew && activeWashOrder && (
-              <div className="glass-panel p-4 rounded-2xl border-gold/40 bg-gold/10 space-y-2">
-                <div className="flex items-center gap-2 text-gold font-bold text-sm">
-                  <span>🔒</span> New Wash Submission Locked
-                </div>
-                <p className="text-xs text-slate-300">
-                  Your last order <strong>#{activeWashOrder.Transaction_ID}</strong> dropped on{' '}
-                  <strong>{new Date(activeWashOrder.Drop_Off_Date).toLocaleDateString()}</strong> is currently{' '}
-                  <span className="text-gold font-semibold uppercase">{activeWashOrder.Status}</span>. Under campus regulations, you can only request another cycle once this order is marked <strong>Completed</strong> and returned.
-                </p>
-              </div>
-            )}
-
             {/* Step 1: Drop Point Selection */}
-            <div className={`glass-panel p-5 rounded-2xl border-white/10 space-y-3 ${!canSubmitNew ? 'opacity-60' : ''}`}>
+            <div className="glass-panel p-5 rounded-2xl border-white/10 space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2">
                   <span className="w-5 h-5 rounded-full bg-sage/20 text-sage flex items-center justify-center text-xs">1</span>
@@ -495,7 +448,7 @@ function StudentDashboardContent() {
                     <button
                       key={kiosk.Drop_Point_ID}
                       type="button"
-                      disabled={isMaintenance || !canSubmitNew}
+                      disabled={isMaintenance}
                       onClick={() => setSelectedKiosk(kiosk.Drop_Point_ID)}
                       className={`p-3 rounded-xl border text-left transition-all relative ${
                         isSelected
@@ -522,7 +475,7 @@ function StudentDashboardContent() {
             </div>
 
             {/* Step 2: 6kg Load Calculator & Garment Counts */}
-            <div className={`glass-panel p-5 rounded-2xl border-white/10 space-y-4 ${!canSubmitNew ? 'opacity-60 pointer-events-none' : ''}`}>
+            <div className="glass-panel p-5 rounded-2xl border-white/10 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2">
                   <span className="w-5 h-5 rounded-full bg-sage/20 text-sage flex items-center justify-center text-xs">2</span>
@@ -559,7 +512,7 @@ function StudentDashboardContent() {
                         <button
                           type="button"
                           onClick={() => updateQuantity(item.Item_ID, -1)}
-                          disabled={qty === 0 || !canSubmitNew}
+                          disabled={qty === 0}
                           className="w-7 h-7 rounded-lg bg-obsidian-950 border border-white/10 text-white flex items-center justify-center font-bold hover:bg-terracotta hover:border-terracotta disabled:opacity-30 disabled:hover:bg-obsidian-950 transition-colors"
                         >
                           -
@@ -570,7 +523,6 @@ function StudentDashboardContent() {
                         <button
                           type="button"
                           onClick={() => updateQuantity(item.Item_ID, 1)}
-                          disabled={!canSubmitNew}
                           className="w-7 h-7 rounded-lg bg-obsidian-950 border border-white/10 text-white flex items-center justify-center font-bold hover:bg-sage hover:text-obsidian-950 hover:border-sage transition-colors"
                         >
                           +
@@ -657,8 +609,8 @@ function StudentDashboardContent() {
                 </div>
                 <div className="flex justify-between text-slate-300">
                   <span>Eligibility:</span>
-                  <span className={`font-bold ${canSubmitNew ? 'text-sage' : 'text-gold'}`}>
-                    {canSubmitNew ? 'Eligible' : 'Pending Prior Wash'}
+                  <span className={`font-bold ${student && student.cycle_remaining >= cyclesNeeded ? 'text-sage' : 'text-terracotta'}`}>
+                    {student && student.cycle_remaining >= cyclesNeeded ? 'Eligible' : 'Insufficient Cycles'}
                   </span>
                 </div>
               </div>
@@ -689,7 +641,6 @@ function StudentDashboardContent() {
                 type="button"
                 onClick={handleDropOffSubmit}
                 disabled={
-                  !canSubmitNew ||
                   submitting ||
                   isOverweight ||
                   totalItemsCount === 0 ||
@@ -698,9 +649,7 @@ function StudentDashboardContent() {
                 }
                 className="w-full py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider bg-sage text-obsidian-950 hover:bg-sage-light disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-glass flex items-center justify-center gap-2"
               >
-                {!canSubmitNew ? (
-                  <span>Previous Wash Must Complete First</span>
-                ) : submitting ? (
+                {submitting ? (
                   <span>Registering Drop-Off...</span>
                 ) : (
                   <>
