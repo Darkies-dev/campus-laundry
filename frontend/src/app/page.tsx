@@ -122,7 +122,7 @@ export default function RoleSelectionPage() {
           </div>
 
           <div className="pt-6 border-t border-white/5 mt-6 flex items-center justify-between text-xs text-slate-400">
-            <span>Direct MySQL Integration</span>
+            <span>Live Cycle Stream</span>
             <span>Batch Control</span>
           </div>
         </div>

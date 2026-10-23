@@ -152,7 +152,7 @@ export default function AdminDashboardPage() {
   // Handle Add Record to Any Table
   async function handleAddRecordSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setFormStatus('Adding record to MySQL...')
+    setFormStatus('Adding record...')
     try {
       await addTableRecord(selectedTable, formData)
       setFormStatus('✓ Record added successfully!')
@@ -218,7 +218,7 @@ export default function AdminDashboardPage() {
     const pkField = TABLE_SCHEMAS[selectedTable]?.pk || 'std_id'
     const pkVal = matchedRecord[pkField]
 
-    setDeleteStatus(`Deleting ${pkField}='${pkVal}' from MySQL...`)
+    setDeleteStatus(`Deleting ${pkField}='${pkVal}'...`)
     try {
       await deleteTableRecord(selectedTable, pkVal)
       setDeleteStatus(`✓ Record '${pkVal}' deleted successfully!`)
@@ -546,7 +546,7 @@ export default function AdminDashboardPage() {
 
             {tableLoading ? (
               <div className="text-center py-12 text-slate-400 text-xs animate-pulse">
-                Fetching records from MySQL...
+                Loading...
               </div>
             ) : tableData.length === 0 ? (
               <div className="text-center py-12 text-slate-500 text-xs">
@@ -717,7 +717,7 @@ export default function AdminDashboardPage() {
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
                   <span>➕</span> Add Record to <span className="font-mono text-gold">{selectedTable}</span>
                 </h3>
-                <p className="text-[11px] text-slate-400">Fill in the fields below to insert into MySQL table.</p>
+                <p className="text-[11px] text-slate-400">Fill in the fields below to insert record.</p>
               </div>
               <button
                 onClick={() => setShowAddModal(false)}
