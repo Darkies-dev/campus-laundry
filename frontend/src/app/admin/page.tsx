@@ -347,7 +347,7 @@ export default function AdminDashboardPage() {
 
             {recentTransactions.length === 0 ? (
               <div className="text-center py-10 text-slate-500 text-xs">
-                No transactions found on server.
+                No active laundry cycle currently in progress.
               </div>
             ) : (
               <div className="overflow-x-auto">
