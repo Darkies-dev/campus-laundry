@@ -120,11 +120,27 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 }
 
 // 1. Fetch Student Quota and 8-Month Academic Pace
-export async function fetchStudentQuota(stdId: string): Promise<{ student: Student; recent_orders: Transaction[] }> {
-  const res = await request<{ success: boolean; student: Student; recent_orders: Transaction[] }>(
+export async function fetchStudentQuota(stdId: string): Promise<{
+  student: Student;
+  recent_orders: Transaction[];
+  active_order?: any;
+  can_submit_new?: boolean;
+}> {
+  const res = await request<{
+    success: boolean;
+    student: Student;
+    recent_orders: Transaction[];
+    active_order?: any;
+    can_submit_new?: boolean;
+  }>(
     `/student/${encodeURIComponent(stdId)}`
   );
-  return { student: res.student, recent_orders: res.recent_orders };
+  return {
+    student: res.student,
+    recent_orders: res.recent_orders || [],
+    active_order: res.active_order || null,
+    can_submit_new: res.can_submit_new !== false,
+  };
 }
 
 // 1b. Register Student with Registration Number

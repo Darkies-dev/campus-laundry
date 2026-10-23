@@ -76,9 +76,14 @@ function StudentDashboardContent() {
     try {
       const data: any = await fetchStudentQuota(id)
       setStudent(data.student)
-      setStudentOrders(data.recent_orders || [])
-      setActiveWashOrder(data.active_order || null)
-      setCanSubmitNew(data.can_submit_new !== false)
+      const orders = data.recent_orders || []
+      setStudentOrders(orders)
+      const active =
+        data.active_order ||
+        orders.find((o: any) => o.Status && !['Completed', 'Cancelled'].includes(o.Status)) ||
+        null
+      setActiveWashOrder(active)
+      setCanSubmitNew(active === null)
     } catch (err: any) {
       setStudent(null)
       setStudentOrders([])
@@ -377,7 +382,15 @@ function StudentDashboardContent() {
             {activeWashOrder ? (
               <div className="space-y-1.5">
                 <div className="text-lg sm:text-xl font-extrabold text-white tracking-tight flex items-center gap-1.5">
-                  <span>{activeWashOrder.Status === 'Ready for Pickup' ? 'Ready for Pick Up' : activeWashOrder.Status === 'In Wash' ? 'Washing in Progress' : 'Order Submitted'}</span>
+                  <span>
+                    {activeWashOrder.Status === 'Ready for Pickup'
+                      ? 'Ready for Pick Up'
+                      : activeWashOrder.Status === 'In Wash'
+                      ? 'Washing in Progress'
+                      : activeWashOrder.Status === 'Submitted'
+                      ? 'Order Submitted'
+                      : activeWashOrder.Status}
+                  </span>
                 </div>
                 <div className="text-sm text-slate-300 font-medium">
                   Order <span className="font-mono text-gold font-bold">#{activeWashOrder.Transaction_ID}</span> &bull; {activeWashOrder.Total_Weight} kg
@@ -396,6 +409,13 @@ function StudentDashboardContent() {
                 </p>
               </div>
             )}
+          </div>
+
+          <div className="text-xs text-slate-400 pt-2.5 border-t border-white/5 flex items-center justify-between">
+            <span>Cycle State</span>
+            <span className="font-mono text-slate-200 font-bold text-xs sm:text-sm">
+              {activeWashOrder ? activeWashOrder.Status : 'Available'}
+            </span>
           </div>
         </div>
       </section>

@@ -73,10 +73,12 @@ def get_student_quota(std_id):
     # Check if student has an active/pending wash that has not been completed/returned
     active_wash = execute_query(
         """
-        SELECT Transaction_ID, Status, Drop_Off_Date, Expected_Completion_Date, Total_Weight
-        FROM laundry_transaction
-        WHERE std_id = %s AND Status NOT IN ('Completed', 'Cancelled')
-        ORDER BY Drop_Off_Date DESC, Transaction_ID DESC
+        SELECT t.Transaction_ID, t.Status, t.Drop_Off_Date, t.Expected_Completion_Date, t.Total_Weight,
+               t.Drop_Point_ID, dp.Location as drop_point_location
+        FROM laundry_transaction t
+        LEFT JOIN drop_point dp ON t.Drop_Point_ID = dp.Drop_Point_ID
+        WHERE t.std_id = %s AND t.Status NOT IN ('Completed', 'Cancelled')
+        ORDER BY t.Drop_Off_Date DESC, t.Transaction_ID DESC
         LIMIT 1
         """,
         (std_id.strip().upper(),),
