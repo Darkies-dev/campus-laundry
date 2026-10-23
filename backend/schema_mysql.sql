@@ -195,6 +195,45 @@ BEGIN
     LIMIT 10;
 END //
 
+-- Procedure: sp_GetHostelDashboardMetrics
+-- Computes campus-wide executive KPI metrics in a single pass using conditional aggregation,
+-- eliminating multiple table scans and avoiding Cartesian product errors.
+DROP PROCEDURE IF EXISTS sp_GetHostelDashboardMetrics //
+
+CREATE PROCEDURE sp_GetHostelDashboardMetrics()
+BEGIN
+    SELECT 
+        t.total_transactions,
+        t.active_loads,
+        t.completed_loads,
+        t.avg_load_kg,
+        s.total_students,
+        s.total_cycles_used,
+        s.total_campus_quota,
+        dp.active_kiosks
+    FROM (
+        SELECT 
+            COUNT(*) AS total_transactions,
+            COUNT(CASE WHEN Status NOT IN ('Completed', 'Cancelled') THEN 1 END) AS active_loads,
+            COUNT(CASE WHEN Status = 'Completed' THEN 1 END) AS completed_loads,
+            ROUND(AVG(Total_Weight), 2) AS avg_load_kg
+        FROM laundry_transaction
+    ) t
+    CROSS JOIN (
+        SELECT 
+            COUNT(*) AS total_students,
+            COALESCE(SUM(cycle_used), 0) AS total_cycles_used,
+            COALESCE(SUM(quota), 0) AS total_campus_quota
+        FROM students
+    ) s
+    CROSS JOIN (
+        SELECT 
+            COUNT(*) AS active_kiosks
+        FROM drop_point
+        WHERE Operational_Status = 'Active'
+    ) dp;
+END //
+
 DELIMITER ;
 
 
