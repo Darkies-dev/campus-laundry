@@ -78,9 +78,13 @@ function StudentDashboardContent() {
       setStudent(data.student)
       const orders = data.recent_orders || []
       setStudentOrders(orders)
+      const statusOf = (o: any) => (o.Status || o.status || '').toLowerCase()
       const active =
         data.active_order ||
-        orders.find((o: any) => o.Status && !['Completed', 'Cancelled'].includes(o.Status)) ||
+        orders.find((o: any) => {
+          const s = statusOf(o)
+          return s && s !== 'completed' && s !== 'cancelled'
+        }) ||
         null
       setActiveWashOrder(active)
       setCanSubmitNew(active === null)
@@ -242,94 +246,108 @@ function StudentDashboardContent() {
         </div>
 
         {/* Card 2: Remaining Cycle Donut Chart (50/50 Balanced Split) */}
-        {student && (() => {
-          const total = student.quota || 30
-          const remaining = Math.max(0, student.cycle_remaining ?? 0)
-          const radius = 48
-          const circumference = 2 * Math.PI * radius
-          const remainingRatio = total > 0 ? remaining / total : 0
-          const strokeDashoffset = circumference * (1 - remainingRatio)
+        {student ? (
+          (() => {
+            const total = student.quota || 30
+            const remaining = Math.max(0, student.cycle_remaining ?? 0)
+            const radius = 48
+            const circumference = 2 * Math.PI * radius
+            const remainingRatio = total > 0 ? remaining / total : 0
+            const strokeDashoffset = circumference * (1 - remainingRatio)
 
-          return (
-            <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex items-center gap-4">
-              {/* Left Side: Exactly 50% of the card for the circular chart */}
-              <div className="w-1/2 flex items-center justify-center">
-                <div className="relative w-32 h-32 sm:w-36 sm:h-36 flex items-center justify-center">
-                  <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 116 116">
-                    {/* Background circle */}
-                    <circle
-                      cx="58"
-                      cy="58"
-                      r={radius}
-                      className="text-white/10"
-                      strokeWidth="11"
-                      stroke="currentColor"
-                      fill="transparent"
-                    />
-                    {/* Progress ring */}
-                    <circle
-                      cx="58"
-                      cy="58"
-                      r={radius}
-                      className="text-sage transition-all duration-700 ease-out"
-                      strokeWidth="11"
-                      strokeDasharray={circumference}
-                      strokeDashoffset={strokeDashoffset}
-                      strokeLinecap="round"
-                      stroke="currentColor"
-                      fill="transparent"
-                    />
-                  </svg>
-                  {/* Inside Center: Remaining Cycles */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className="text-3xl sm:text-4xl font-black font-mono text-sage leading-none">
-                      {remaining}
-                    </span>
-                    <span className="text-xs uppercase tracking-wider text-slate-400 font-extrabold mt-1">
-                      Remaining
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Side: Exactly 50% balanced space for metrics */}
-              <div className="w-1/2 space-y-3.5 pl-2">
-                <div>
-                  <div className="flex items-baseline justify-between mb-1.5">
-                    <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-gold">
-                      8-Month Burn
-                    </span>
-                    <span className="text-xl sm:text-2xl font-black font-mono text-gold">
-                      {student.burn_percentage}%
-                    </span>
-                  </div>
-                  {/* Progress bar: Pure solid white, absolutely no glow / no shadow / no gradient */}
-                  <div className="w-full h-3 rounded-full bg-obsidian-950 overflow-hidden border border-white/10">
-                    <div
-                      className="h-full bg-white transition-all duration-500"
-                      style={{ width: `${Math.min(100, student.burn_percentage)}%` }}
-                    ></div>
+            return (
+              <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex items-center gap-4">
+                {/* Left Side: Exactly 50% of the card for the circular chart */}
+                <div className="w-1/2 flex items-center justify-center">
+                  <div className="relative w-32 h-32 sm:w-36 sm:h-36 flex items-center justify-center">
+                    <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 116 116">
+                      {/* Background circle */}
+                      <circle
+                        cx="58"
+                        cy="58"
+                        r={radius}
+                        className="text-white/10"
+                        strokeWidth="11"
+                        stroke="currentColor"
+                        fill="transparent"
+                      />
+                      {/* Progress ring */}
+                      <circle
+                        cx="58"
+                        cy="58"
+                        r={radius}
+                        className="text-sage transition-all duration-700 ease-out"
+                        strokeWidth="11"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={strokeDashoffset}
+                        strokeLinecap="round"
+                        stroke="currentColor"
+                        fill="transparent"
+                      />
+                    </svg>
+                    {/* Inside Center: Remaining Cycles */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                      <span className="text-3xl sm:text-4xl font-black font-mono text-sage leading-none">
+                        {remaining}
+                      </span>
+                      <span className="text-xs uppercase tracking-wider text-slate-400 font-extrabold mt-1">
+                        Remaining
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
+                {/* Right Side: Exactly 50% balanced space for metrics */}
+                <div className="w-1/2 space-y-3.5 pl-2">
                   <div>
-                    <div className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Used</div>
-                    <div className="text-xl sm:text-2xl font-mono font-black text-white mt-0.5">
-                      {student.cycle_used}
+                    <div className="flex items-baseline justify-between mb-1.5">
+                      <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-gold">
+                        8-Month Burn
+                      </span>
+                      <span className="text-xl sm:text-2xl font-black font-mono text-gold">
+                        {student.burn_percentage}%
+                      </span>
+                    </div>
+                    {/* Progress bar: Pure solid white, absolutely no glow / no shadow / no gradient */}
+                    <div className="w-full h-3 rounded-full bg-obsidian-950 overflow-hidden border border-white/10">
+                      <div
+                        className="h-full bg-white transition-all duration-500"
+                        style={{ width: `${Math.min(100, student.burn_percentage)}%` }}
+                      ></div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Quota</div>
-                    <div className="text-xl sm:text-2xl font-mono font-black text-slate-200 mt-0.5">
-                      {student.quota}
+
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
+                    <div>
+                      <div className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Used</div>
+                      <div className="text-xl sm:text-2xl font-mono font-black text-white mt-0.5">
+                        {student.cycle_used}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Quota</div>
+                      <div className="text-xl sm:text-2xl font-mono font-black text-slate-200 mt-0.5">
+                        {student.quota}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
+            )
+          })()
+        ) : (
+          <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Remaining Quota</span>
+              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/5 text-slate-400 uppercase border border-white/10 font-mono animate-pulse">
+                LOADING...
+              </span>
             </div>
-          )
-        })()}
+            <div className="my-auto py-8 text-center">
+              <div className="text-xs text-slate-400 animate-pulse">Loading quota metrics...</div>
+            </div>
+          </div>
+        )}
 
         {/* Card 3: Current Laundry Cycle Status */}
         {(() => {
@@ -347,15 +365,15 @@ function StudentDashboardContent() {
             matchedKiosk?.Location ||
             dropPointId
 
-          const defaultDropLocation =
-            kiosks.find((k) => k.Location === student?.hostel)?.Location ||
-            (kiosks.length > 0 ? `${kiosks[0].Location} Kiosk` : 'Hostel Drop Point')
-
           return (
             <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex flex-col justify-between">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Current Laundry Cycle</span>
-                {activeWashOrder ? (
+                {studentLoading ? (
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/5 text-slate-400 uppercase border border-white/10 font-mono animate-pulse">
+                    LOADING...
+                  </span>
+                ) : activeWashOrder ? (
                   <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-gold/20 text-gold uppercase border border-gold/30">
                     {activeWashOrder.Status}
                   </span>
@@ -367,7 +385,11 @@ function StudentDashboardContent() {
               </div>
 
               <div className="my-auto py-3 text-center flex flex-col items-center justify-center">
-                {activeWashOrder ? (
+                {studentLoading ? (
+                  <div className="text-xs text-slate-400 animate-pulse py-4">
+                    Loading cycle status...
+                  </div>
+                ) : activeWashOrder ? (
                   <div className="space-y-2 w-full">
                     <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                       {activeWashOrder.Status === 'Ready for Pickup'
@@ -393,9 +415,6 @@ function StudentDashboardContent() {
                     <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-xs mx-auto">
                       All previous laundry loads completed and picked up.
                     </p>
-                    <div className="text-xs sm:text-sm text-slate-300 pt-1">
-                      Drop Point: <strong className="text-sage font-bold font-mono">{defaultDropLocation}</strong>
-                    </div>
                   </div>
                 )}
               </div>
