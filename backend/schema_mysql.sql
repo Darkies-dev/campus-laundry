@@ -70,3 +70,48 @@ CREATE TABLE IF NOT EXISTS transaction_item (
     CONSTRAINT fk_transaction_id FOREIGN KEY (Transaction_ID) REFERENCES laundry_transaction(Transaction_ID) ON DELETE CASCADE,
     CONSTRAINT fk_item_id FOREIGN KEY (Item_ID) REFERENCES laundry_item(Item_ID) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ========================================================================
+-- 7. STUDENT PORTAL OVERVIEW VIEW
+-- Aggregates profile, 8-month quota pace, and current active wash status
+-- into a single high-performance query for the Student Dashboard
+-- ========================================================================
+CREATE OR REPLACE VIEW vw_student_portal_overview AS
+SELECT 
+    s.std_id,
+    s.std_name,
+    s.contact,
+    s.hostel,
+    s.room,
+    s.academic_year,
+    s.quota,
+    s.cycle_used,
+    s.cycle_remaining,
+    ROUND((s.cycle_used / s.quota) * 100, 1) AS burn_percentage,
+    act.Transaction_ID AS active_transaction_id,
+    act.Status AS active_status,
+    act.Total_Weight AS active_total_weight,
+    act.Drop_Point_ID AS active_drop_point_id,
+    act.drop_point_location AS active_drop_point_location,
+    act.Drop_Off_Date AS active_drop_off_date,
+    act.Expected_Completion_Date AS active_expected_completion_date
+FROM students s
+LEFT JOIN (
+    SELECT 
+        t.std_id,
+        t.Transaction_ID,
+        t.Status,
+        t.Total_Weight,
+        t.Drop_Point_ID,
+        dp.Location AS drop_point_location,
+        t.Drop_Off_Date,
+        t.Expected_Completion_Date,
+        ROW_NUMBER() OVER (
+            PARTITION BY t.std_id 
+            ORDER BY t.Drop_Off_Date DESC, t.Transaction_ID DESC
+        ) AS rn
+    FROM laundry_transaction t
+    LEFT JOIN drop_point dp ON t.Drop_Point_ID = dp.Drop_Point_ID
+    WHERE t.Status NOT IN ('Completed', 'Cancelled')
+) act ON s.std_id = act.std_id AND act.rn = 1;
+

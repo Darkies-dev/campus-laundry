@@ -56,11 +56,13 @@ def get_student_quota(std_id):
     conn = get_connection()
     try:
         cur = conn.cursor(dictionary=True)
-        cur.execute("SELECT * FROM students WHERE std_id = %s", (clean_id,))
-        student = cur.fetchone()
-        if not student:
+        # 1. Execute safe parameter-bound query against MySQL VIEW for top 3 overview cards
+        cur.execute("SELECT * FROM vw_student_portal_overview WHERE std_id = %s", (clean_id,))
+        overview = cur.fetchone()
+        if not overview:
             return jsonify({"success": False, "error": f"Student '{clean_id}' not found."}), 404
 
+        # 2. Fetch recent orders for history tab
         cur.execute(
             """
             SELECT t.*, dp.Location as drop_point_location, v.Vendor_Name as vendor_name
@@ -78,13 +80,11 @@ def get_student_quota(std_id):
         cur.close()
         conn.close()
 
-    # Calculate 8-month academic pace
-    quota = student.get("quota") or TOTAL_QUOTA_CYCLES
-    cycle_used = student.get("cycle_used") or 0
-    cycle_remaining = student.get("cycle_remaining") or (quota - cycle_used)
-
+    quota = overview.get("quota") or TOTAL_QUOTA_CYCLES
+    cycle_used = overview.get("cycle_used") or 0
+    cycle_remaining = overview.get("cycle_remaining") or (quota - cycle_used)
+    burn_percentage = float(overview.get("burn_percentage") or 0.0)
     monthly_allowance = round(quota / ACADEMIC_YEAR_MONTHS, 2)
-    burn_percentage = round((cycle_used / quota) * 100, 1) if quota > 0 else 0
 
     if cycle_remaining <= 0:
         pace_status = "Quota Exhausted"
@@ -99,8 +99,18 @@ def get_student_quota(std_id):
         pace_status = "Optimal Pace"
         pace_color = "sage"
 
-    # Derive active wash directly from recent_orders (no extra slow query)
-    active_wash = next((o for o in recent_orders if o.get("Status") not in ("Completed", "Cancelled")), None)
+    # Active wash data derived directly from the database VIEW
+    clean_active = None
+    if overview.get("active_transaction_id"):
+        clean_active = {
+            "Transaction_ID": overview["active_transaction_id"],
+            "Status": overview["active_status"],
+            "Total_Weight": float(overview["active_total_weight"]) if overview.get("active_total_weight") is not None else 0.0,
+            "Drop_Point_ID": overview["active_drop_point_id"],
+            "drop_point_location": overview["active_drop_point_location"],
+            "Drop_Off_Date": overview["active_drop_off_date"].isoformat() if hasattr(overview.get("active_drop_off_date"), "isoformat") else overview.get("active_drop_off_date"),
+            "Expected_Completion_Date": overview["active_expected_completion_date"].isoformat() if hasattr(overview.get("active_expected_completion_date"), "isoformat") else overview.get("active_expected_completion_date")
+        }
 
     # Sanitize Decimal/Date for JSON serialization
     clean_orders = []
@@ -115,26 +125,16 @@ def get_student_quota(std_id):
                 item[k] = v
         clean_orders.append(item)
 
-    clean_active = None
-    if active_wash:
-        clean_active = {}
-        for k, v in active_wash.items():
-            if hasattr(v, "isoformat"):
-                clean_active[k] = v.isoformat()
-            elif hasattr(v, "__float__") and not isinstance(v, (int, float)):
-                clean_active[k] = float(v)
-            else:
-                clean_active[k] = v
-
     response_data = {
         "success": True,
+        "view_source": "vw_student_portal_overview",
         "student": {
-            "std_id": student["std_id"],
-            "std_name": student["std_name"],
-            "hostel": student["hostel"],
-            "room": student["room"],
-            "contact": student["contact"],
-            "academic_year": student["academic_year"],
+            "std_id": overview["std_id"],
+            "std_name": overview["std_name"],
+            "hostel": overview["hostel"],
+            "room": overview["room"],
+            "contact": overview["contact"],
+            "academic_year": overview["academic_year"],
             "quota": quota,
             "cycle_used": cycle_used,
             "cycle_remaining": cycle_remaining,
