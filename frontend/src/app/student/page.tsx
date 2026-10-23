@@ -244,21 +244,21 @@ function StudentDashboardContent() {
                 {student.std_name}
               </div>
 
-              {/* Seamless horizontal layout with larger typography (no visible subcard borders) */}
-              <div className="flex items-center justify-between gap-2 pt-1">
+              {/* Compact horizontal layout with tighter spacing */}
+              <div className="flex items-center gap-6 pt-1">
                 <div>
-                  <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Hostel</div>
-                  <div className="text-lg sm:text-xl font-bold text-sage font-mono mt-0.5">{student.hostel}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Hostel</div>
+                  <div className="text-lg sm:text-xl font-bold text-sage font-mono">{student.hostel}</div>
                 </div>
-                <div className="h-8 w-px bg-white/10"></div>
+                <div className="h-7 w-px bg-white/10"></div>
                 <div>
-                  <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Room</div>
-                  <div className="text-lg sm:text-xl font-bold text-white font-mono mt-0.5">{student.room}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Room</div>
+                  <div className="text-lg sm:text-xl font-bold text-white font-mono">{student.room}</div>
                 </div>
-                <div className="h-8 w-px bg-white/10"></div>
+                <div className="h-7 w-px bg-white/10"></div>
                 <div>
-                  <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Year</div>
-                  <div className="text-sm sm:text-base font-bold text-gold font-mono mt-1">{student.academic_year}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Year</div>
+                  <div className="text-base sm:text-lg font-bold text-gold font-mono">{student.academic_year}</div>
                 </div>
               </div>
             </div>
