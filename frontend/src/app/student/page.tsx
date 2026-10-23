@@ -346,44 +346,35 @@ function StudentDashboardContent() {
             )}
           </div>
 
-          <div className="my-auto py-2">
+          <div className="my-auto py-3 text-center flex flex-col items-center justify-center">
             {activeWashOrder ? (
-              <div className="space-y-1.5">
-                <div className="text-lg sm:text-xl font-extrabold text-white tracking-tight flex items-center gap-1.5">
-                  <span>
-                    {activeWashOrder.Status === 'Ready for Pickup'
-                      ? 'Ready for Pick Up'
-                      : activeWashOrder.Status === 'In Wash'
-                      ? 'Washing in Progress'
-                      : activeWashOrder.Status === 'Submitted'
-                      ? 'Order Submitted'
-                      : activeWashOrder.Status}
-                  </span>
+              <div className="space-y-2 w-full">
+                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  {activeWashOrder.Status === 'Ready for Pickup'
+                    ? 'Ready for Pick Up'
+                    : activeWashOrder.Status === 'In Wash'
+                    ? 'Washing in Progress'
+                    : activeWashOrder.Status === 'Submitted'
+                    ? 'Order Submitted'
+                    : activeWashOrder.Status}
                 </div>
-                <div className="text-sm text-slate-300 font-medium">
-                  Order <span className="font-mono text-gold font-bold">#{activeWashOrder.Transaction_ID}</span> &bull; {activeWashOrder.Total_Weight} kg
+                <div className="text-sm sm:text-base text-slate-300 font-medium">
+                  Order <span className="font-mono text-gold font-bold text-base sm:text-lg">#{activeWashOrder.Transaction_ID}</span> &bull; <span className="font-mono text-white font-bold">{activeWashOrder.Total_Weight} kg</span>
                 </div>
-                <div className="text-xs text-slate-400 pt-0.5">
-                  Drop Point: <strong className="text-slate-200">{activeWashOrder.drop_point_location || activeWashOrder.Drop_Point_ID}</strong>
+                <div className="text-xs sm:text-sm text-slate-400 pt-0.5">
+                  Drop Point: <strong className="text-slate-200 font-semibold">{activeWashOrder.drop_point_location || activeWashOrder.Drop_Point_ID}</strong>
                 </div>
               </div>
             ) : (
-              <div className="space-y-1.5">
-                <div className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+              <div className="space-y-2 w-full">
+                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                   No Active Cycle
                 </div>
-                <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-xs mx-auto">
                   All previous laundry loads completed and picked up.
                 </p>
               </div>
             )}
-          </div>
-
-          <div className="text-xs text-slate-400 pt-2.5 border-t border-white/5 flex items-center justify-between">
-            <span>Cycle State</span>
-            <span className="font-mono text-slate-200 font-bold text-xs sm:text-sm">
-              {activeWashOrder ? activeWashOrder.Status : 'Available'}
-            </span>
           </div>
         </div>
       </section>
