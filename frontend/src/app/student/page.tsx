@@ -223,8 +223,8 @@ function StudentDashboardContent() {
         <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex flex-col justify-between">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-sage">Student Profile</span>
-            <span className="text-xs font-mono font-bold text-white bg-obsidian-900 border border-white/10 rounded-lg px-2.5 py-1">
-              #{studentId}
+            <span className="text-sm font-mono font-bold text-white bg-obsidian-900 border border-white/10 rounded-lg px-3 py-1 tracking-wide">
+              {studentId}
             </span>
           </div>
 
@@ -240,31 +240,33 @@ function StudentDashboardContent() {
 
           {student && (
             <div className="my-auto space-y-3 py-1">
-              <div className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+              <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                 {student.std_name}
               </div>
 
-              {/* Grid badges filling out card area */}
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="p-2 rounded-xl bg-obsidian-900/80 border border-white/5">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Hostel</div>
-                  <div className="text-sm sm:text-base font-bold text-sage font-mono mt-0.5">{student.hostel}</div>
+              {/* Seamless horizontal layout with larger typography (no visible subcard borders) */}
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <div>
+                  <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Hostel</div>
+                  <div className="text-lg sm:text-xl font-bold text-sage font-mono mt-0.5">{student.hostel}</div>
                 </div>
-                <div className="p-2 rounded-xl bg-obsidian-900/80 border border-white/5">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Room</div>
-                  <div className="text-sm sm:text-base font-bold text-white font-mono mt-0.5">{student.room}</div>
+                <div className="h-8 w-px bg-white/10"></div>
+                <div>
+                  <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Room</div>
+                  <div className="text-lg sm:text-xl font-bold text-white font-mono mt-0.5">{student.room}</div>
                 </div>
-                <div className="p-2 rounded-xl bg-obsidian-900/80 border border-white/5">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Year</div>
-                  <div className="text-xs sm:text-sm font-bold text-gold font-mono mt-1">{student.academic_year}</div>
+                <div className="h-8 w-px bg-white/10"></div>
+                <div>
+                  <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Year</div>
+                  <div className="text-sm sm:text-base font-bold text-gold font-mono mt-1">{student.academic_year}</div>
                 </div>
               </div>
             </div>
           )}
 
-          <div className="text-[11px] text-slate-400 pt-2 border-t border-white/5 flex items-center justify-between">
+          <div className="text-xs text-slate-400 pt-2.5 border-t border-white/5 flex items-center justify-between">
             <span>Contact Number</span>
-            <span className="font-mono text-slate-200 font-semibold">{student?.contact || '--'}</span>
+            <span className="font-mono text-slate-200 font-bold text-xs sm:text-sm">{student?.contact || '--'}</span>
           </div>
         </div>
 
