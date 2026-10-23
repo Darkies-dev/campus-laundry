@@ -113,52 +113,46 @@ SELECT
     dp.Location AS drop_point_location,
     t.Drop_Off_Date,
     t.Expected_Completion_Date
-FROM laundry_transaction t
+FROM (
+    SELECT 
+        *,
+        ROW_NUMBER() OVER (
+            PARTITION BY std_id 
+            ORDER BY Drop_Off_Date DESC, Transaction_ID DESC
+        ) AS rn
+    FROM laundry_transaction
+    WHERE Status NOT IN ('Completed', 'Cancelled')
+) t
 LEFT JOIN drop_point dp ON t.Drop_Point_ID = dp.Drop_Point_ID
-WHERE t.Status NOT IN ('Completed', 'Cancelled');
+WHERE t.rn = 1;
 
 -- ========================================================================
--- 8. CONSOLIDATED STUDENT PORTAL VIEW (HIGH-PERFORMANCE COMPOSITE)
--- Aggregates the 3 modular views into a single sub-second query for the web dashboard,
--- eliminating multi-hop network round-trips over cloud SSL connections.
+-- 8. COMPOSITE STUDENT PORTAL VIEW (JOIN OF THE 3 MODULAR VIEWS)
+-- Simply joins the 3 underlying views above, preserving modularity and DRY
+-- while enabling a single sub-second query for the web dashboard.
 -- ========================================================================
 CREATE OR REPLACE VIEW vw_student_portal_overview AS
 SELECT 
-    s.std_id,
-    s.std_name,
-    s.contact,
-    s.hostel,
-    s.room,
-    s.academic_year,
-    s.quota,
-    s.cycle_used,
-    s.cycle_remaining,
-    ROUND((s.cycle_used / s.quota) * 100, 1) AS burn_percentage,
-    act.Transaction_ID AS active_transaction_id,
-    act.Status AS active_status,
-    act.Total_Weight AS active_total_weight,
-    act.Drop_Point_ID AS active_drop_point_id,
-    act.drop_point_location AS active_drop_point_location,
-    act.Drop_Off_Date AS active_drop_off_date,
-    act.Expected_Completion_Date AS active_expected_completion_date
-FROM students s
-LEFT JOIN (
-    SELECT 
-        t.std_id,
-        t.Transaction_ID,
-        t.Status,
-        t.Total_Weight,
-        t.Drop_Point_ID,
-        dp.Location AS drop_point_location,
-        t.Drop_Off_Date,
-        t.Expected_Completion_Date,
-        ROW_NUMBER() OVER (
-            PARTITION BY t.std_id 
-            ORDER BY t.Drop_Off_Date DESC, t.Transaction_ID DESC
-        ) AS rn
-    FROM laundry_transaction t
-    LEFT JOIN drop_point dp ON t.Drop_Point_ID = dp.Drop_Point_ID
-    WHERE t.Status NOT IN ('Completed', 'Cancelled')
-) act ON s.std_id = act.std_id AND act.rn = 1;
+    p.std_id,
+    p.std_name,
+    p.contact,
+    p.hostel,
+    p.room,
+    p.academic_year,
+    q.quota,
+    q.cycle_used,
+    q.cycle_remaining,
+    q.burn_percentage,
+    q.pace_status,
+    a.Transaction_ID AS active_transaction_id,
+    a.Status AS active_status,
+    a.Total_Weight AS active_total_weight,
+    a.Drop_Point_ID AS active_drop_point_id,
+    a.drop_point_location AS active_drop_point_location,
+    a.Drop_Off_Date AS active_drop_off_date,
+    a.Expected_Completion_Date AS active_expected_completion_date
+FROM vw_student_profile p
+JOIN vw_student_quota_burn q ON p.std_id = q.std_id
+LEFT JOIN vw_student_active_cycle a ON p.std_id = a.std_id;
 
 
