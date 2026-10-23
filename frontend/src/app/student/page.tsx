@@ -63,12 +63,8 @@ function StudentDashboardContent() {
         setSelectedKiosk(active.Drop_Point_ID)
       }
       setCatalogItems(itemRes.items)
-      if (itemRes.items.length > 0) {
-        setItemQuantities({
-          [itemRes.items[0].Item_ID]: 2,
-          ...(itemRes.items[1] ? { [itemRes.items[1].Item_ID]: 1 } : {}),
-        })
-      }
+      // Initialize with empty bag (all 0s by default)
+      setItemQuantities({})
     } catch (err: any) {
       console.error('Failed to load global data:', err)
     }
