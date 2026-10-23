@@ -323,17 +323,17 @@ function StudentDashboardContent() {
               <div className="w-1/2 space-y-3.5 pl-2">
                 <div>
                   <div className="flex items-baseline justify-between mb-1.5">
-                    <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300">
+                    <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-gold">
                       8-Month Burn
                     </span>
-                    <span className="text-xl sm:text-2xl font-black font-mono text-white">
+                    <span className="text-xl sm:text-2xl font-black font-mono text-gold">
                       {student.burn_percentage}%
                     </span>
                   </div>
-                  {/* Progress bar: Solid white, not a gradient */}
-                  <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden border border-white/20">
+                  {/* Progress bar: Pure solid white, absolutely no glow / no shadow / no gradient */}
+                  <div className="w-full h-3 rounded-full bg-obsidian-950 overflow-hidden border border-white/10">
                     <div
-                      className="h-full bg-white rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(255,255,255,0.7)]"
+                      className="h-full bg-white transition-all duration-500"
                       style={{ width: `${Math.min(100, student.burn_percentage)}%` }}
                     ></div>
                   </div>
