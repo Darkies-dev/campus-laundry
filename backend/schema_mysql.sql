@@ -234,6 +234,145 @@ BEGIN
     ) dp;
 END //
 
+-- Procedure: sp_RegisterStudent
+-- Registers a new student and initializes their academic quota
+DROP PROCEDURE IF EXISTS sp_RegisterStudent //
+
+CREATE PROCEDURE sp_RegisterStudent(
+    IN p_std_id VARCHAR(30),
+    IN p_name VARCHAR(60),
+    IN p_contact BIGINT,
+    IN p_hostel VARCHAR(50),
+    IN p_room VARCHAR(20),
+    IN p_academic_year VARCHAR(30),
+    IN p_quota INT
+)
+BEGIN
+    INSERT INTO students (
+        std_id, std_name, contact, hostel, room, academic_year, quota, cycle_used, cycle_remaining
+    ) VALUES (
+        p_std_id, p_name, p_contact, p_hostel, p_room, p_academic_year, p_quota, 0, p_quota
+    );
+
+    SELECT 'SUCCESS' AS status, CONCAT('Student ', p_name, ' registered successfully with ', p_quota, ' cycles.') AS message;
+END //
+
+-- Procedure: sp_ResetSemesterQuota
+-- Administrative procedure to reset student laundry cycle quotas at the beginning of a semester
+DROP PROCEDURE IF EXISTS sp_ResetSemesterQuota //
+
+CREATE PROCEDURE sp_ResetSemesterQuota(
+    IN p_new_quota INT
+)
+BEGIN
+    UPDATE students
+    SET quota = p_new_quota,
+        cycle_remaining = p_new_quota,
+        cycle_used = 0;
+    
+    SELECT ROW_COUNT() AS students_reset;
+END //
+
+-- ========================================================================
+-- 10. TRIGGERS
+-- ========================================================================
+
+-- Trigger 1: Validate Student Insert
+DROP TRIGGER IF EXISTS trg_validate_student_insert //
+
+CREATE TRIGGER trg_validate_student_insert
+BEFORE INSERT ON students
+FOR EACH ROW
+BEGIN
+    IF LENGTH(NEW.std_id) != 10 OR NEW.std_id NOT REGEXP '^[0-9]{10}$' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Validation Error: wrong student ID';
+    END IF;
+
+    IF LENGTH(CAST(NEW.contact AS CHAR)) != 10 OR CAST(NEW.contact AS CHAR) NOT REGEXP '^[6-9][0-9]{9}$' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Validation Error: Phone number must be exactly 10 digits starting with 6, 7, 8, or 9.';
+    END IF;
+
+    IF NEW.hostel NOT REGEXP '^(B([1-9]|1[0-2])|G[1-8])$' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Validation Error: Invalid hostel. Allowed hostels are B1 to B12 and G1 to G8 only.';
+    END IF;
+
+    IF NEW.quota NOT IN (15, 30) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Validation Error: Quota cycles must be either 15 or 30.';
+    END IF;
+
+    IF NEW.cycle_remaining IS NULL THEN
+        SET NEW.cycle_remaining = NEW.quota;
+    END IF;
+    IF NEW.cycle_used IS NULL THEN
+        SET NEW.cycle_used = 0;
+    END IF;
+END //
+
+-- Trigger 2: Validate Student Update
+DROP TRIGGER IF EXISTS trg_validate_student_update //
+
+CREATE TRIGGER trg_validate_student_update
+BEFORE UPDATE ON students
+FOR EACH ROW
+BEGIN
+    IF LENGTH(NEW.std_id) != 10 OR NEW.std_id NOT REGEXP '^[0-9]{10}$' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Validation Error: wrong student ID';
+    END IF;
+
+    IF LENGTH(CAST(NEW.contact AS CHAR)) != 10 OR CAST(NEW.contact AS CHAR) NOT REGEXP '^[6-9][0-9]{9}$' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Validation Error: Phone number must be exactly 10 digits starting with 6, 7, 8, or 9.';
+    END IF;
+
+    IF NEW.hostel NOT REGEXP '^(B([1-9]|1[0-2])|G[1-8])$' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Validation Error: Invalid hostel. Allowed hostels are B1 to B12 and G1 to G8 only.';
+    END IF;
+
+    IF NEW.quota NOT IN (15, 30) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Validation Error: Quota cycles must be either 15 or 30.';
+    END IF;
+END //
+
+-- Trigger 3: Set Expected Turnaround Delivery Date
+DROP TRIGGER IF EXISTS trg_set_expected_delivery //
+
+CREATE TRIGGER trg_set_expected_delivery
+BEFORE INSERT ON laundry_transaction
+FOR EACH ROW
+BEGIN
+    DECLARE v_day_of_week INT;
+    IF NEW.Drop_Off_Date IS NULL THEN
+        SET NEW.Drop_Off_Date = CURRENT_DATE();
+    END IF;
+    
+    SET v_day_of_week = DAYOFWEEK(NEW.Drop_Off_Date);
+
+    -- 6 = Friday, 7 = Saturday in MySQL DAYOFWEEK (weekend peak load)
+    IF v_day_of_week IN (6, 7) THEN
+        SET NEW.Expected_Completion_Date = DATE_ADD(NEW.Drop_Off_Date, INTERVAL 5 DAY);
+    ELSE
+        SET NEW.Expected_Completion_Date = DATE_ADD(NEW.Drop_Off_Date, INTERVAL 3 DAY);
+    END IF;
+END //
+
+-- Trigger 4: Automatic Completion Timestamp & Cancelled Quota Refund
+DROP TRIGGER IF EXISTS trg_before_update_laundry_txn //
+
+CREATE TRIGGER trg_before_update_laundry_txn
+BEFORE UPDATE ON laundry_transaction
+FOR EACH ROW
+BEGIN
+    IF NEW.Status IN ('Ready for Pickup', 'Completed') AND OLD.Actual_Completion_Date IS NULL THEN
+        SET NEW.Actual_Completion_Date = CURRENT_DATE();
+    END IF;
+
+    IF NEW.Status = 'Cancelled' AND OLD.Status != 'Cancelled' THEN
+        UPDATE students
+        SET cycle_remaining = cycle_remaining + OLD.Cycles_Deducted,
+            cycle_used = GREATEST(0, cycle_used - OLD.Cycles_Deducted)
+        WHERE std_id = OLD.std_id;
+    END IF;
+END //
+
 DELIMITER ;
 
 
