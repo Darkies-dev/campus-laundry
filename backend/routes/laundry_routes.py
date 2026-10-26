@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
 import time
 from database import execute_query, execute_procedure, DatabaseTransaction, get_connection
+from auth_middleware import require_admin
 
 # In-Memory Response Cache for high-performance sub-second loads
 _CACHE = {}
@@ -458,6 +459,7 @@ def get_transaction_detail(txn_id):
 
 # --- 6. Status Updater (Triggers handle completion date & cancellation cycle refunds) ---
 @laundry_bp.route("/transactions/<txn_id>/status", methods=["PATCH"])
+@require_admin
 def update_status(txn_id):
     data = request.get_json() or {}
     new_status = data.get("status")
@@ -491,6 +493,7 @@ def update_status(txn_id):
 
 # --- 7. Campus Dashboard Overview (Powered by sp_GetHostelDashboardMetrics) ---
 @laundry_bp.route("/dashboard", methods=["GET"])
+@require_admin
 def get_dashboard_metrics():
     cached = get_from_cache("dashboard", ttl_seconds=8)
     if cached is not None:

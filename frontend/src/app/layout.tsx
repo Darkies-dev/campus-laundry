@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import ThemeToggle from '@/components/ThemeToggle'
 
 export const metadata: Metadata = {
-  title: 'CampusLaundry',
-  description: 'Smart college hostel laundry quota tracking, drop point drop-off, and cycle management system.',
+  title: 'CampusLaundry — Hostel Laundry Management',
+  description: 'College hostel laundry quota tracking, drop-off scheduling, and cycle management system.',
 }
 
 export default function RootLayout({
@@ -12,55 +13,61 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-obsidian-950 text-slate-100 min-h-screen flex flex-col relative selection:bg-sage/20 selection:text-sage-light">
-        {/* Subtle Ambient Background Glows */}
-        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-          <div className="absolute -top-40 right-10 w-96 h-96 bg-sage/10 rounded-full blur-3xl"></div>
-          <div className="absolute top-1/3 -left-32 w-80 h-80 bg-terracotta/10 rounded-full blur-3xl"></div>
-          <div className="absolute -bottom-20 right-1/4 w-96 h-96 bg-gold/5 rounded-full blur-3xl"></div>
-        </div>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var stored = localStorage.getItem('campus_laundry_theme');
+                  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  if (stored === 'dark' || (!stored && prefersDark)) {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body className="bg-slate-50 dark:bg-[#090c0a] text-slate-800 dark:text-[#f0f2f0] min-h-screen flex flex-col transition-colors duration-200">
 
-        {/* Global Navigation Header */}
-        <header className="sticky top-0 z-50 glass-panel border-b border-white/5 px-4 sm:px-8 py-3.5">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-            {/* Brand Title */}
-            <div>
-              <a href="/" className="text-xl sm:text-2xl font-black tracking-tight text-white hover:text-slate-200 transition-colors">
-                CampusLaundry
-              </a>
-            </div>
-
-            {/* Right side: Today's Date and Switch Role */}
-            <div className="flex items-center gap-3">
-              <div className="text-xs font-mono text-slate-300 px-3 py-1.5 rounded-lg bg-obsidian-900 border border-white/5">
-                {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+        {/* Header */}
+        <header className="bg-white/95 dark:bg-[#090c0a]/90 backdrop-blur-md border-b border-slate-200 dark:border-[#1d2420] sticky top-0 z-40 transition-colors duration-200">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+            <a href="/" className="flex items-center gap-2.5 group">
+              <div className="w-8 h-8 rounded-lg bg-primary-800 dark:bg-[#1a261e] dark:border dark:border-[#2f4233] flex items-center justify-center transition-transform group-hover:scale-105 shadow-sm">
+                <span className="text-white dark:text-[#a3c9a8] text-sm font-bold tracking-tight">CL</span>
               </div>
-              <a
-                href="/"
-                className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/40 text-red-400 hover:bg-red-500/20 hover:border-red-500 hover:text-red-300 transition-all shadow-sm"
-              >
-                Logout
-              </a>
+              <span className="text-lg font-extrabold text-slate-800 dark:text-[#f0f2f0] tracking-tight">CampusLaundry</span>
+            </a>
+
+            <div className="flex items-center gap-4">
+              <div className="text-xs text-slate-400 dark:text-[#8a958d] font-mono hidden md:block">
+                Fri, Oct 23, 2026
+              </div>
+              {/* Dark Mode Toggle */}
+              <ThemeToggle />
             </div>
           </div>
         </header>
 
-        {/* Main Content Area */}
-        <main className="flex-1 relative z-10 max-w-7xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8">
+        {/* Main Content */}
+        <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6">
           {children}
         </main>
 
         {/* Footer */}
-        <footer className="relative z-10 glass-panel border-t border-white/5 py-4 text-center text-xs text-slate-500">
-          <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-            <span>&copy; {new Date().getFullYear()} CampusLaundry System</span>
-            <div className="flex gap-4">
-              <span className="text-slate-400">Policy: 30 Cycles/Year</span>
-              <span className="text-slate-400">Standard Turnaround: 72 hrs</span>
-            </div>
+        <footer className="border-t border-slate-200 dark:border-[#1d2420] bg-white dark:bg-[#090c0a] py-4 text-center text-xs text-slate-400 dark:text-[#6d7870] transition-colors duration-200">
+          <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-1">
+            <span>&copy; 2026 CampusLaundry System</span>
+            <span>Policy: 30 Cycles/Year &middot; Standard Turnaround: 72 hrs</span>
           </div>
         </footer>
+
       </body>
     </html>
   )

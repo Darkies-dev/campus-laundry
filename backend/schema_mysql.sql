@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS laundry_transaction (
     Total_Weight DECIMAL(5,2) NOT NULL DEFAULT 0.00,
     Cycles_Deducted INT NOT NULL DEFAULT 1,
     Status VARCHAR(20) NOT NULL DEFAULT 'Submitted',
+    Actual_Completion_Date DATE NULL,
     CONSTRAINT fk_std_id FOREIGN KEY (std_id) REFERENCES students(std_id) ON DELETE CASCADE,
     CONSTRAINT fk_drop_point_id FOREIGN KEY (Drop_Point_ID) REFERENCES drop_point(Drop_Point_ID) ON DELETE RESTRICT,
     CONSTRAINT fk2_vendor_id FOREIGN KEY (Vendor_ID) REFERENCES vendor(Vendor_ID) ON DELETE RESTRICT
@@ -334,9 +335,102 @@ BEGIN
     END IF;
 END //
 
+-- ========================================================================
+-- 11. ADMIN AUTHENTICATION TABLE
+-- ========================================================================
+
+-- 7. Admin Users Table (Authentication & Authorization)
+CREATE TABLE IF NOT EXISTS admin_users (
+    admin_id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(30) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(60) NOT NULL,
+    role ENUM('warden', 'vendor', 'superadmin') NOT NULL DEFAULT 'warden',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    last_login DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Trigger 5: Auto-stamp last_login on admin authentication
+DROP TRIGGER IF EXISTS trg_admin_login_timestamp //
+
+CREATE TRIGGER trg_admin_login_timestamp
+BEFORE UPDATE ON admin_users
+FOR EACH ROW
+BEGIN
+    IF NEW.last_login IS NOT NULL AND (OLD.last_login IS NULL OR NEW.last_login != OLD.last_login) THEN
+        SET NEW.last_login = NOW();
+    END IF;
+END //
+
+-- Procedure: sp_AuthenticateAdmin
+-- Verifies admin credentials exist and account is active.
+-- Returns admin record for bcrypt password comparison in Python.
+DROP PROCEDURE IF EXISTS sp_AuthenticateAdmin //
+
+CREATE PROCEDURE sp_AuthenticateAdmin(IN p_username VARCHAR(30))
+BEGIN
+    SELECT admin_id, username, password_hash, full_name, role, is_active, last_login
+    FROM admin_users
+    WHERE username = p_username AND is_active = TRUE;
+END //
+
 DELIMITER ;
 
+-- ========================================================================
+-- 12. SAMPLE SEED DATA (INITIAL DATA POPULATION)
+-- Uses INSERT IGNORE so this script can be executed safely multiple times
+-- ========================================================================
 
+-- 1. Vendors
+INSERT IGNORE INTO vendor (Vendor_ID, Vendor_Name, Contact_No) VALUES
+('VND01', 'Sparkle Wash Services', 9876543210),
+('VND02', 'Campus Cleaners Ltd.', 9123456789);
 
+-- 2. Drop Point Kiosks
+INSERT IGNORE INTO drop_point (Drop_Point_ID, Location, Operational_Status, Vendor_ID) VALUES
+('DP01', 'B1', 'Active', 'VND01'),
+('DP02', 'B11', 'Active', 'VND01'),
+('DP03', 'G1', 'Active', 'VND02'),
+('DP04', 'G5', 'Active', 'VND02');
 
+-- 3. Laundry Clothing Catalog & Standard Unit Weights (Kg)
+INSERT IGNORE INTO laundry_item (Item_ID, Item_Name, Category, Standard_Weight) VALUES
+('ITM01', 'T-Shirt / Shirt', 'Daily Wear', 0.25),
+('ITM02', 'Jeans / Trousers', 'Daily Wear', 0.65),
+('ITM03', 'Bed Sheet (Single)', 'Bedding', 0.60),
+('ITM04', 'Bed Sheet (Double)', 'Bedding', 1.10),
+('ITM05', 'Bath Towel', 'Daily Wear', 0.45),
+('ITM06', 'Pillow Cover', 'Bedding', 0.15),
+('ITM07', 'Sweater / Hoodie', 'Woolen', 0.80),
+('ITM08', 'Blanket / Comforter', 'Bedding', 2.20),
+('ITM09', 'Shorts / Lower', 'Daily Wear', 0.30),
+('ITM10', 'Lab Coat / Uniform', 'Formals', 0.40);
+
+-- 4. Sample Students (Initialized with 30 / 15 Cycle Quotas)
+INSERT IGNORE INTO students (std_id, std_name, contact, hostel, room, academic_year, quota, cycle_used, cycle_remaining) VALUES
+('2502050680', 'Aarav Sharma', 9870011223, 'B10', '205', '2nd Year', 30, 9, 21),
+('2502050112', 'Priya Patel', 9870022334, 'G8', '108', '2nd Year', 30, 12, 18),
+('2602050045', 'Rohan Verma', 9870033445, 'B4', '312', '1st Year', 30, 2, 28),
+('2402050088', 'Ananya Iyer', 9870044556, 'G1', '405', '3rd Year', 30, 29, 1),
+('2502050650', 'Arush Bhalu', 9666666666, 'G4', '699', '2nd Year', 15, 0, 15);
+
+-- 5. Sample Transactions
+INSERT IGNORE INTO laundry_transaction 
+(Transaction_ID, std_id, Drop_Point_ID, Vendor_ID, Drop_Off_Date, Expected_Completion_Date, Total_Weight, Cycles_Deducted, Status)
+VALUES
+('TXN1001', '2502050680', 'DP01', 'VND01', '2026-10-15', '2026-10-18', 5.70, 1, 'Completed'),
+('TXN1002', '2502050680', 'DP01', 'VND01', '2026-10-19', '2026-10-22', 6.10, 1, 'Completed'),
+('TXN1003', '2502050680', 'DP01', 'VND01', '2026-10-23', '2026-10-28', 5.70, 1, 'In Wash');
+
+-- 6. Sample Line Items for Transactions
+INSERT IGNORE INTO transaction_item (Transaction_ID, Item_ID, Quantity) VALUES
+('TXN1001', 'ITM01', 8),
+('TXN1001', 'ITM02', 3),
+('TXN1001', 'ITM05', 2),
+('TXN1001', 'ITM09', 3),
+('TXN1003', 'ITM01', 8),
+('TXN1003', 'ITM02', 3),
+('TXN1003', 'ITM05', 2),
+('TXN1003', 'ITM09', 3);
 

@@ -4,128 +4,118 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
-export default function RoleSelectionPage() {
+export default function HomePage() {
   const router = useRouter()
-  const [studentInput, setStudentInput] = useState('')
-  const [errorMsg, setErrorMsg] = useState('')
+  const [regNumber, setRegNumber] = useState('')
+  const [error, setError] = useState('')
 
-  const handleStudentProceed = (e: React.FormEvent) => {
+  function handleStudentLogin(e: React.FormEvent) {
     e.preventDefault()
-    if (!studentInput.trim()) {
-      setErrorMsg('Please enter your Registration Number')
+    const val = regNumber.trim().toUpperCase()
+    if (!val) {
+      setError('Please enter your registration number')
       return
     }
-    router.push(`/student?reg=${encodeURIComponent(studentInput.trim().toUpperCase())}`)
+    if (val.length !== 10 || !/^\d{10}$/.test(val)) {
+      setError('Registration number must be exactly 10 digits')
+      return
+    }
+    router.push(`/student?reg=${encodeURIComponent(val)}`)
   }
 
   return (
-    <div className="min-h-[75vh] flex flex-col items-center justify-center py-6">
-      <div className="text-center max-w-xl mx-auto mb-10 space-y-2">
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+    <div className="min-h-[75vh] flex flex-col items-center justify-center py-6 sm:py-10">
+      <div className="text-center mb-8 sm:mb-12">
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-800 dark:text-white tracking-tight">
           CampusLaundry
         </h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-xs sm:text-sm text-slate-500 dark:text-[#8a958d] mt-2 font-medium">
           College Hostel Laundry Management &bull; Quota Tracking &bull; Drop-offs
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
-        {/* STUDENT PORTAL CARD */}
-        <div className="glass-panel p-6 sm:p-8 rounded-2xl border-white/10 flex flex-col justify-between">
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-white">Student Portal</h2>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-white/10 text-slate-300">
-                  Hostelers
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
-                Check remaining cycles (30 quota limit), calculate laundry loads, track orders, and schedule drop-offs.
-              </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
+
+        {/* Student Portal Card */}
+        <div className="card p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <h2 className="text-base font-bold text-slate-800 dark:text-white">Student Portal</h2>
+              <span className="badge badge-green">Hostelers</span>
             </div>
+            <p className="text-xs text-slate-500 dark:text-[#8a958d] mb-6 leading-relaxed">
+              Check remaining cycles (30 quota limit), calculate laundry loads, track orders, and schedule drop-offs.
+            </p>
 
-            {/* Quick Registration Input */}
-            <form onSubmit={handleStudentProceed} className="space-y-3 pt-2">
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-300 block mb-1">
-                  Registration Number
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={studentInput}
-                    onChange={(e) => {
-                      setStudentInput(e.target.value.toUpperCase())
-                      setErrorMsg('')
-                    }}
-                    placeholder="e.g. 2502050680"
-                    className="flex-1 glass-input px-3 py-2.5 rounded-xl font-mono text-sm uppercase text-white font-bold tracking-wide focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    className="px-4 py-2.5 rounded-xl bg-sage text-obsidian-950 font-bold text-xs uppercase tracking-wider hover:bg-sage-light transition-all"
-                  >
-                    Enter &rarr;
-                  </button>
-                </div>
-                {errorMsg && <p className="text-[11px] text-terracotta mt-1">{errorMsg}</p>}
+            <form onSubmit={handleStudentLogin} className="space-y-2 mb-4">
+              <label className="text-[11px] font-bold text-slate-500 dark:text-[#8a958d] uppercase tracking-wider block">
+                REGISTRATION NUMBER
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={regNumber}
+                  onChange={(e) => {
+                    setRegNumber(e.target.value.toUpperCase().replace(/\D/g, '').slice(0, 10))
+                    setError('')
+                  }}
+                  placeholder="E.G. 2502050680"
+                  className="input-field font-mono uppercase tracking-wider text-sm flex-1"
+                  maxLength={10}
+                />
+                <button type="submit" className="btn btn-primary px-4 whitespace-nowrap text-xs font-bold tracking-wider uppercase">
+                  ENTER &rarr;
+                </button>
               </div>
-
-              <div className="pt-2 text-[11px] text-slate-500">
+              {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+              <p className="text-[11px] text-slate-400 dark:text-[#6d7870] mt-2 leading-normal">
                 Enter your university-issued registration number to access your 30-cycle quota and order history.
-              </div>
+              </p>
             </form>
           </div>
 
-          <div className="pt-6 border-t border-white/5 mt-6 flex items-center justify-between text-xs text-slate-400">
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-[#1d2420] flex justify-between text-[11px] text-slate-400 dark:text-[#6d7870]">
             <span>Standard: 1 cycle up to 6.0kg</span>
             <span>Max 8.0kg (2 cycles)</span>
           </div>
         </div>
 
-        {/* ADMIN PORTAL CARD */}
-        <div className="glass-panel p-6 sm:p-8 rounded-2xl border-white/10 flex flex-col justify-between">
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-white">Hostel Admin &amp; Vendor Console</h2>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-white/10 text-slate-300">
-                  Staff Only
-                </span>
+        {/* Hostel Admin & Vendor Console Card */}
+        <div className="card p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <h2 className="text-base font-bold text-slate-800 dark:text-white">Hostel Admin &amp; Vendor Console</h2>
+              <span className="badge badge-gray">Staff Only</span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-[#8a958d] mb-6 leading-relaxed">
+              Campus overview: Active loads, student records, quota burn rate, drop point operations, and order lifecycle management.
+            </p>
+
+            <div className="bg-slate-50 dark:bg-[#0e1310] border border-slate-100 dark:border-[#1d2420] rounded-lg p-3 text-xs text-slate-600 dark:text-[#c5cec7] space-y-2 mb-6">
+              <div className="flex justify-between">
+                <span className="text-slate-400 dark:text-[#6d7870]">Hostel Blocks:</span>
+                <span className="font-semibold text-slate-700 dark:text-[#e0e6e2]">B1&ndash;B12, G1&ndash;G8</span>
               </div>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
-                Campus overview: Active loads, student records, quota burn rate, drop point operations, and order lifecycle management.
-              </p>
+              <div className="flex justify-between">
+                <span className="text-slate-400 dark:text-[#6d7870]">Privileges:</span>
+                <span className="font-semibold text-slate-700 dark:text-[#e0e6e2]">Status Stepper &amp; Database CRUD</span>
+              </div>
             </div>
 
-            <div className="space-y-2 pt-2">
-              <div className="p-3 rounded-xl bg-obsidian-900 border border-white/5 text-xs text-slate-300 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Hostel Blocks:</span>
-                  <span className="font-semibold text-white">B1–B12, G1–G8</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Privileges:</span>
-                  <span className="font-semibold text-white">Status Stepper &amp; Database CRUD</span>
-                </div>
-              </div>
-
-              <Link
-                href="/admin"
-                className="w-full mt-4 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-obsidian-900 border border-white/10 text-white font-bold text-xs uppercase tracking-wider hover:bg-white/10 transition-all"
-              >
-                <span>Launch Admin Dashboard</span>
-                <span>&rarr;</span>
-              </Link>
-            </div>
+            <Link
+              href="/admin/login"
+              className="btn btn-outline w-full uppercase tracking-wider font-bold text-xs py-2.5"
+            >
+              LAUNCH ADMIN DASHBOARD &rarr;
+            </Link>
           </div>
 
-          <div className="pt-6 border-t border-white/5 mt-6 flex items-center justify-between text-xs text-slate-400">
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-[#1d2420] flex justify-between text-[11px] text-slate-400 dark:text-[#6d7870]">
             <span>Live Cycle Stream</span>
             <span>Batch Control</span>
           </div>
         </div>
+
       </div>
     </div>
   )

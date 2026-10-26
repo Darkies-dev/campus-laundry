@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   fetchStudentQuota,
   fetchKiosks,
@@ -14,10 +14,10 @@ import {
 } from '@/lib/api'
 
 function StudentDashboardContent() {
+  const router = useRouter()
   const searchParams = useSearchParams()
-  const initialReg = searchParams.get('reg') || '2502050680'
+  const initialReg = searchParams.get('reg') || ''
 
-  // Active Student State (College Registration Number)
   const [studentId, setStudentId] = useState<string>(initialReg)
   const [student, setStudent] = useState<Student | null>(null)
   const [studentOrders, setStudentOrders] = useState<Transaction[]>([])
@@ -26,12 +26,10 @@ function StudentDashboardContent() {
   const [studentLoading, setStudentLoading] = useState<boolean>(false)
   const [studentError, setStudentError] = useState<string | null>(null)
 
-  // Kiosks & Items
   const [kiosks, setKiosks] = useState<Kiosk[]>([])
   const [selectedKiosk, setSelectedKiosk] = useState<string>('')
   const [catalogItems, setCatalogItems] = useState<LaundryItem[]>([])
 
-  // Drop-off Builder (6kg Load calculation)
   const [itemQuantities, setItemQuantities] = useState<Record<string, number>>({})
   const [remarks, setRemarks] = useState<string>('')
   const [submitting, setSubmitting] = useState<boolean>(false)
@@ -40,32 +38,23 @@ function StudentDashboardContent() {
 
   const [activeTab, setActiveTab] = useState<'dropoff' | 'history' | 'kiosks'>('dropoff')
 
+  useEffect(() => { loadGlobalData() }, [])
   useEffect(() => {
-    loadGlobalData()
-  }, [])
-
-  useEffect(() => {
-    if (studentId.trim()) {
-      loadStudentData(studentId)
-    }
+    if (studentId.trim()) loadStudentData(studentId)
   }, [studentId])
 
   async function loadGlobalData() {
     try {
-      const [kioskList, itemRes] = await Promise.all([
-        fetchKiosks(),
-        fetchLaundryItems(),
-      ])
+      const [kioskList, itemRes] = await Promise.all([fetchKiosks(), fetchLaundryItems()])
       setKiosks(kioskList)
       if (kioskList.length > 0) {
         const active = kioskList.find((k) => k.Operational_Status === 'Active') || kioskList[0]
         setSelectedKiosk(active.Drop_Point_ID)
       }
       setCatalogItems(itemRes.items)
-      // Initialize with empty bag (all 0s by default)
       setItemQuantities({})
     } catch (err: any) {
-      console.error('Failed to load global data:', err)
+      console.error('Failed to load data:', err)
     }
   }
 
@@ -73,18 +62,14 @@ function StudentDashboardContent() {
     setStudentLoading(true)
     setStudentError(null)
     try {
-      const data: any = await fetchStudentQuota(id)
+      const data = await fetchStudentQuota(id)
       setStudent(data.student)
       const orders = data.recent_orders || []
       setStudentOrders(orders)
-      const statusOf = (o: any) => (o.Status || o.status || '').toLowerCase()
-      const active =
-        data.active_order ||
-        orders.find((o: any) => {
-          const s = statusOf(o)
-          return s && s !== 'completed' && s !== 'cancelled'
-        }) ||
-        null
+      const active = data.active_order || orders.find((o: any) => {
+        const s = (o.Status || '').toLowerCase()
+        return s && s !== 'completed' && s !== 'cancelled'
+      }) || null
       setActiveWashOrder(active)
       setCanSubmitNew(active === null)
     } catch (err: any) {
@@ -92,19 +77,17 @@ function StudentDashboardContent() {
       setStudentOrders([])
       setActiveWashOrder(null)
       setCanSubmitNew(true)
-      setStudentError(err.message || 'Student not found in college records.')
+      setStudentError(err.message || 'Student not found.')
     } finally {
       setStudentLoading(false)
     }
   }
 
-  // Weight Calculation: Sum of (quantity * standard weight)
   const totalWeightKg = Object.entries(itemQuantities).reduce((sum, [itemId, qty]) => {
     const item = catalogItems.find((i) => i.Item_ID === itemId)
     return sum + (item ? item.Standard_Weight * qty : 0)
   }, 0)
 
-  // Max cap is 8.0 kg; cycle count is 2 only if it crosses 6.20 kg, otherwise 1
   const isOverweight = totalWeightKg > 8.0
   const cyclesNeeded = totalWeightKg > 6.2 ? 2 : 1
   const totalItemsCount = Object.values(itemQuantities).reduce((a, b) => a + b, 0)
@@ -124,426 +107,323 @@ function StudentDashboardContent() {
     setSubmitError(null)
     setSubmitResult(null)
 
-    if (totalItemsCount === 0) {
-      setSubmitError('Please add at least 1 item to your laundry bag.')
-      return
-    }
-    if (isOverweight) {
-      setSubmitError('Bag exceeds the maximum allowed limit of 8.0 kg for a single wash.')
-      return
-    }
+    if (totalItemsCount === 0) { setSubmitError('Add at least 1 item to your bag.'); return }
+    if (isOverweight) { setSubmitError('Bag exceeds 8.0 kg limit.'); return }
     if (!student || student.cycle_remaining < cyclesNeeded) {
-      setSubmitError(
-        `You need ${cyclesNeeded} cycle(s) for this load (${totalWeightKg.toFixed(2)} kg), but you only have ${
-          student?.cycle_remaining ?? 0
-        } cycle(s) left.`
-      )
+      setSubmitError(`Need ${cyclesNeeded} cycle(s) but only have ${student?.cycle_remaining ?? 0}.`)
       return
     }
-    if (!selectedKiosk) {
-      setSubmitError('Please select a collection drop point.')
-      return
-    }
+    if (!selectedKiosk) { setSubmitError('Select a drop point.'); return }
 
     setSubmitting(true)
-    const itemsPayload = Object.entries(itemQuantities).map(([item_id, quantity]) => ({
-      item_id,
-      quantity,
-    }))
-
     try {
       const result = await submitDropOff({
         std_id: studentId,
         drop_point_id: selectedKiosk,
-        items: itemsPayload,
+        items: Object.entries(itemQuantities).map(([item_id, quantity]) => ({ item_id, quantity })),
         remarks,
       })
       setSubmitResult(result)
+      setItemQuantities({})
+      setRemarks('')
       await loadStudentData(studentId)
     } catch (err: any) {
-      setSubmitError(err.message || 'Failed to submit drop-off.')
+      setSubmitError(err.message || 'Failed to submit.')
     } finally {
       setSubmitting(false)
     }
   }
 
+  const weightPercent = Math.min(100, (totalWeightKg / 8.0) * 100)
+
   return (
     <div className="space-y-6">
-      {/* Section Header Label */}
-      <div className="pb-2 border-b border-white/5">
-        <h1 className="text-sm font-semibold uppercase tracking-wider text-sage">
-          Student Dashboard
-        </h1>
-      </div>
 
-      {/* 3 BALANCED OVERVIEW CARDS: PROFILE, QUOTA DONUT, CURRENT CYCLE STATUS */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
-        {/* Card 1: Student Profile Information */}
-        <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex flex-col justify-between">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-sage">Student Profile</span>
-            <span className="text-sm font-mono font-bold text-white bg-obsidian-900 border border-white/10 rounded-lg px-3 py-1 tracking-wide">
-              {studentId}
-            </span>
-          </div>
-
-          {studentLoading && (
-            <div className="text-xs text-slate-400 animate-pulse">Loading profile...</div>
-          )}
-
-          {studentError && (
-            <div className="text-xs text-terracotta bg-terracotta/10 px-2.5 py-1 rounded-lg border border-terracotta/20">
-              {studentError}
-            </div>
-          )}
-
+      {/* Page Title */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-bold text-slate-800 dark:text-white">Student Dashboard</h1>
           {student && (
-            <div className="my-auto space-y-3 py-1">
-              <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                {student.std_name}
-              </div>
-
-              {/* Center-aligned 3-column layout filling width with large typography */}
-              <div className="grid grid-cols-3 divide-x divide-white/10 text-center pt-2">
-                <div className="px-2">
-                  <div className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Hostel</div>
-                  <div className="text-2xl sm:text-3xl font-extrabold text-sage font-mono mt-0.5">{student.hostel}</div>
-                </div>
-                <div className="px-2">
-                  <div className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Room</div>
-                  <div className="text-2xl sm:text-3xl font-extrabold text-white font-mono mt-0.5">{student.room}</div>
-                </div>
-                <div className="px-2">
-                  <div className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Year</div>
-                  <div className="text-lg sm:text-xl font-bold text-gold font-mono mt-1">{student.academic_year}</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="text-xs text-slate-400 pt-2.5 border-t border-white/5 flex items-center justify-between">
-            <span>Contact Number</span>
-            <span className="font-mono text-slate-200 font-bold text-xs sm:text-sm">{student?.contact || '--'}</span>
-          </div>
-        </div>
-
-        {/* Card 2: Remaining Cycle Donut Chart (50/50 Balanced Split) */}
-        {student ? (
-          (() => {
-            const total = student.quota || 30
-            const remaining = Math.max(0, student.cycle_remaining ?? 0)
-            const radius = 48
-            const circumference = 2 * Math.PI * radius
-            const remainingRatio = total > 0 ? remaining / total : 0
-            const strokeDashoffset = circumference * (1 - remainingRatio)
-
-            return (
-              <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex items-center gap-4">
-                {/* Left Side: Exactly 50% of the card for the circular chart */}
-                <div className="w-1/2 flex items-center justify-center">
-                  <div className="relative w-32 h-32 sm:w-36 sm:h-36 flex items-center justify-center">
-                    <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 116 116">
-                      {/* Background circle */}
-                      <circle
-                        cx="58"
-                        cy="58"
-                        r={radius}
-                        className="text-white/10"
-                        strokeWidth="11"
-                        stroke="currentColor"
-                        fill="transparent"
-                      />
-                      {/* Progress ring */}
-                      <circle
-                        cx="58"
-                        cy="58"
-                        r={radius}
-                        className="text-sage transition-all duration-700 ease-out"
-                        strokeWidth="11"
-                        strokeDasharray={circumference}
-                        strokeDashoffset={strokeDashoffset}
-                        strokeLinecap="round"
-                        stroke="currentColor"
-                        fill="transparent"
-                      />
-                    </svg>
-                    {/* Inside Center: Remaining Cycles */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                      <span className="text-3xl sm:text-4xl font-black font-mono text-sage leading-none">
-                        {remaining}
-                      </span>
-                      <span className="text-xs uppercase tracking-wider text-slate-400 font-extrabold mt-1">
-                        Remaining
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Side: Exactly 50% balanced space for metrics */}
-                <div className="w-1/2 space-y-3.5 pl-2">
-                  <div>
-                    <div className="flex items-baseline justify-between mb-1.5">
-                      <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-gold">
-                        8-Month Burn
-                      </span>
-                      <span className="text-xl sm:text-2xl font-black font-mono text-gold">
-                        {student.burn_percentage}%
-                      </span>
-                    </div>
-                    {/* Progress bar: Pure solid white, absolutely no glow / no shadow / no gradient */}
-                    <div className="w-full h-3 rounded-full bg-obsidian-950 overflow-hidden border border-white/10">
-                      <div
-                        className="h-full bg-white transition-all duration-500"
-                        style={{ width: `${Math.min(100, student.burn_percentage)}%` }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
-                    <div>
-                      <div className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Used</div>
-                      <div className="text-xl sm:text-2xl font-mono font-black text-white mt-0.5">
-                        {student.cycle_used}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs uppercase tracking-wider text-slate-400 font-semibold">Quota</div>
-                      <div className="text-xl sm:text-2xl font-mono font-black text-slate-200 mt-0.5">
-                        {student.quota}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )
-          })()
-        ) : (
-          <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex flex-col justify-between">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Remaining Quota</span>
-              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/5 text-slate-400 uppercase border border-white/10 font-mono animate-pulse">
-                LOADING...
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-xs text-slate-500 dark:text-[#8a958d]">
+                Welcome back, <span className="font-semibold text-slate-700 dark:text-[#e0e6e2]">{student.std_name}</span>
+              </p>
+              <span className="text-[11px] font-mono bg-slate-100 dark:bg-[#161c18] border border-slate-200 dark:border-[#26332a] rounded px-2 py-0.5 text-slate-600 dark:text-[#a3c9a8] font-bold">
+                {studentId}
               </span>
             </div>
-            <div className="my-auto py-8 text-center">
-              <div className="text-xs text-slate-400 animate-pulse">Loading quota metrics...</div>
+          )}
+        </div>
+
+        {/* Logout Option in place of old registration number position */}
+        <button
+          type="button"
+          onClick={() => router.push('/')}
+          className="btn btn-outline text-xs px-3 py-1.5 rounded-lg border-red-200 text-red-600 hover:bg-red-50 dark:bg-[#201515] dark:border-[#482020] dark:text-[#f87171] dark:hover:bg-[#2c1a1a] dark:active:bg-[#191010] flex items-center gap-1.5 transition-colors"
+          title="Sign out of student portal"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Logout
+        </button>
+      </div>
+
+      {studentError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">
+          {studentError}
+        </div>
+      )}
+
+      {/* Overview Cards (Enlarged & Aligned to match reference) */}
+      {student && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+          {/* Profile Card */}
+          <div className="card p-6 sm:p-7 flex flex-col justify-between min-h-[240px]">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-400 dark:text-[#8a958d] uppercase tracking-wider">
+                  Student Profile
+                </span>
+                <span className="text-xs font-mono font-bold px-3 py-1 rounded-md bg-slate-100 dark:bg-[#161c18] border border-slate-200 dark:border-[#26332a] text-slate-700 dark:text-[#a3c9a8]">
+                  {student.std_id}
+                </span>
+              </div>
+              <div className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white tracking-tight my-2">
+                {student.std_name}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 text-center my-3">
+              <div>
+                <div className="text-xs font-bold text-slate-400 dark:text-[#6d7870] uppercase tracking-wider mb-1">Hostel</div>
+                <div className="text-2xl sm:text-3xl font-black text-primary-800 dark:text-[#a3c9a8] font-mono leading-none">{student.hostel}</div>
+              </div>
+              <div>
+                <div className="text-xs font-bold text-slate-400 dark:text-[#6d7870] uppercase tracking-wider mb-1">Room</div>
+                <div className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white font-mono leading-none">{student.room}</div>
+              </div>
+              <div>
+                <div className="text-xs font-bold text-slate-400 dark:text-[#6d7870] uppercase tracking-wider mb-1">Year</div>
+                <div className="text-lg sm:text-xl font-bold text-amber-500 dark:text-[#fde047] leading-none">{student.academic_year}</div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-[#1d2420] flex justify-between items-center text-xs text-slate-400 dark:text-[#8a958d]">
+              <span>Contact Number</span>
+              <span className="font-mono text-sm font-bold text-slate-700 dark:text-[#e0e6e2]">{student.contact}</span>
             </div>
           </div>
-        )}
 
-        {/* Card 3: Current Laundry Cycle Status */}
-        {(() => {
-          const activeOrderMatch = studentOrders.find(
-            (o) => o.Transaction_ID === activeWashOrder?.Transaction_ID
-          )
-          const dropPointId =
-            activeWashOrder?.Drop_Point_ID ||
-            activeOrderMatch?.Drop_Point_ID ||
-            'DP01'
-          const matchedKiosk = kiosks.find((k) => k.Drop_Point_ID === dropPointId)
-          const activeDropLocation =
-            activeWashOrder?.drop_point_location ||
-            activeOrderMatch?.drop_point_location ||
-            matchedKiosk?.Location ||
-            dropPointId
+          {/* Quota / Washes Remaining Card */}
+          <div className="card p-6 sm:p-7 flex flex-col justify-between min-h-[240px]">
+            <div className="text-xs font-bold text-slate-400 dark:text-[#8a958d] uppercase tracking-wider mb-2">
+              Washes Remaining
+            </div>
 
-          return (
-            <div className="glass-panel p-5 rounded-3xl border-white/10 shadow-glass flex flex-col justify-between">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Current Laundry Cycle</span>
-                {studentLoading ? (
-                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/5 text-slate-400 uppercase border border-white/10 font-mono animate-pulse">
-                    LOADING...
+            <div className="flex items-center gap-6 my-auto">
+              {/* Enlarged Circular Gauge */}
+              <div className="relative w-32 h-32 sm:w-36 sm:h-36 flex-shrink-0">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="48" strokeWidth="10" stroke="currentColor" className="text-slate-100 dark:text-[#19221b]" fill="transparent" />
+                  <circle
+                    cx="60" cy="60" r="48" strokeWidth="10" fill="transparent"
+                    stroke={student.cycle_remaining <= 5 ? '#ef4444' : student.cycle_remaining <= 15 ? '#f59e0b' : '#a3c9a8'}
+                    strokeDasharray={2 * Math.PI * 48}
+                    strokeDashoffset={2 * Math.PI * 48 * (1 - Math.max(0, student.cycle_remaining) / (student.quota || 30))}
+                    strokeLinecap="round"
+                    className="transition-all duration-500"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-3xl sm:text-4xl font-black text-slate-800 dark:text-white leading-none">
+                    {student.cycle_remaining}
                   </span>
-                ) : activeWashOrder ? (
-                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-gold/20 text-gold uppercase border border-gold/30">
+                  <span className="text-[11px] font-bold text-slate-400 dark:text-[#a3c9a8] uppercase tracking-wider mt-1">
+                    REMAINING
+                  </span>
+                </div>
+              </div>
+
+              {/* Burn & Quota Stats */}
+              <div className="space-y-3 flex-1">
+                <div className="flex justify-between items-baseline text-xs sm:text-sm font-extrabold text-slate-700 dark:text-white">
+                  <span className="uppercase tracking-wider">8-MONTH BURN</span>
+                  <span className="text-amber-500 dark:text-[#fde047] font-black">{student.burn_percentage}%</span>
+                </div>
+
+                <div className="w-full h-3 rounded-full bg-slate-100 dark:bg-[#161c18] overflow-hidden">
+                  <div
+                    className="h-full bg-primary-800 dark:bg-[#a3c9a8] transition-all duration-500 rounded-full"
+                    style={{ width: `${Math.min(100, student.burn_percentage)}%` }}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1 text-center">
+                  <div className="bg-slate-50 dark:bg-[#151b17] rounded-lg p-2 border border-slate-100 dark:border-[#1d2420]">
+                    <div className="text-[10px] font-bold text-slate-400 dark:text-[#6d7870] uppercase">Used</div>
+                    <div className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white font-mono mt-0.5">{student.cycle_used}</div>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-[#151b17] rounded-lg p-2 border border-slate-100 dark:border-[#1d2420]">
+                    <div className="text-[10px] font-bold text-slate-400 dark:text-[#6d7870] uppercase">Quota</div>
+                    <div className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white font-mono mt-0.5">{student.quota}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-[11px] text-slate-400 dark:text-[#6d7870] pt-2 text-right">
+              Recommended: ~3.75 washes / month
+            </div>
+          </div>
+
+          {/* Current Wash Card */}
+          <div className="card p-6 sm:p-7 flex flex-col justify-between min-h-[240px]">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-400 dark:text-[#8a958d] uppercase tracking-wider">
+                  Current Laundry Cycle
+                </span>
+                {activeWashOrder ? (
+                  <span className="badge badge-yellow uppercase font-bold text-[10px] tracking-wider px-2.5 py-1">
                     {activeWashOrder.Status}
                   </span>
                 ) : (
-                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/5 text-slate-400 uppercase border border-white/10 font-mono">
-                    IDLE
+                  <span className="badge badge-gray uppercase font-bold text-[10px] tracking-wider px-2.5 py-1">
+                    Idle
                   </span>
                 )}
               </div>
 
-              <div className="my-auto py-3 text-center flex flex-col items-center justify-center">
-                {studentLoading ? (
-                  <div className="text-xs text-slate-400 animate-pulse py-4">
-                    Loading cycle status...
+              {activeWashOrder ? (
+                <div className="space-y-2.5 my-3">
+                  <div className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white tracking-tight leading-snug">
+                    {activeWashOrder.Status === 'Ready for Pickup' ? 'Ready for Pick Up' :
+                     activeWashOrder.Status === 'In Wash' ? 'Washing...' :
+                     activeWashOrder.Status === 'Submitted' ? 'Order Submitted' : activeWashOrder.Status}
                   </div>
-                ) : activeWashOrder ? (
-                  <div className="space-y-2 w-full">
-                    <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                      {activeWashOrder.Status === 'Ready for Pickup'
-                        ? 'Ready for Pick Up'
-                        : activeWashOrder.Status === 'In Wash'
-                        ? 'Washing in Progress'
-                        : activeWashOrder.Status === 'Submitted'
-                        ? 'Order Submitted'
-                        : activeWashOrder.Status}
-                    </div>
-                    <div className="text-sm sm:text-base text-slate-300 font-medium">
-                      Order <span className="font-mono text-gold font-bold text-base sm:text-lg">#{activeWashOrder.Transaction_ID}</span> &bull; <span className="font-mono text-white font-bold">{activeWashOrder.Total_Weight} kg</span>
-                    </div>
-                    <div className="text-xs sm:text-sm text-slate-300 pt-1">
-                      Drop Point: <strong className="text-sage font-bold font-mono text-sm sm:text-base">{activeDropLocation}</strong>
-                    </div>
+                  <div className="text-sm sm:text-base text-slate-600 dark:text-[#c5cec7] font-medium">
+                    Order <span className="font-mono font-bold text-amber-500 dark:text-[#fde047]">#{activeWashOrder.Transaction_ID}</span> &middot; <span className="font-bold">{activeWashOrder.Total_Weight} kg</span>
                   </div>
-                ) : (
-                  <div className="space-y-2 w-full">
-                    <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                      No Active Cycle
-                    </div>
-                    <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-xs mx-auto">
-                      All previous laundry loads completed and picked up.
-                    </p>
-                  </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="text-center py-6 my-auto">
+                  <div className="text-xl sm:text-2xl font-bold text-slate-600 dark:text-[#8a958d]">No Active Wash</div>
+                  <p className="text-xs text-slate-400 dark:text-[#6d7870] mt-1.5">All previous loads are completed.</p>
+                </div>
+              )}
             </div>
-          )
-        })()}
-      </section>
 
-      {/* Navigation Tabs */}
-      <div className="flex gap-2 border-b border-white/10 pb-2">
-        <button
-          onClick={() => setActiveTab('dropoff')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-            activeTab === 'dropoff'
-              ? 'bg-sage text-obsidian-950 shadow-glass font-extrabold'
-              : 'text-slate-400 hover:text-white hover:bg-white/5'
-          }`}
-        >
-          <span>New Wash Request</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-            activeTab === 'history'
-              ? 'bg-sage text-obsidian-950 shadow-glass font-extrabold'
-              : 'text-slate-400 hover:text-white hover:bg-white/5'
-          }`}
-        >
-          <span>Last 10 Washes</span>
-          <span className="px-1.5 py-0.2 rounded-md bg-white/10 text-[10px] font-mono">
-            {studentOrders.length}
-          </span>
-        </button>
-        <button
-          onClick={() => setActiveTab('kiosks')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-            activeTab === 'kiosks'
-              ? 'bg-sage text-obsidian-950 shadow-glass font-extrabold'
-              : 'text-slate-400 hover:text-white hover:bg-white/5'
-          }`}
-        >
-          Drop Points ({kiosks.length})
-        </button>
+            <div className="pt-3 border-t border-slate-100 dark:border-[#1d2420] flex justify-between items-center text-xs text-slate-400 dark:text-[#8a958d]">
+              <span>Pickup Kiosk</span>
+              <span className="font-bold text-slate-800 dark:text-[#a3c9a8] text-sm">
+                {activeWashOrder ? (activeWashOrder.drop_point_location || activeWashOrder.Drop_Point_ID) : 'Any Drop Point'}
+              </span>
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* Loading state */}
+      {studentLoading && !student && (
+        <div className="card p-8 text-center text-sm text-slate-400">Loading student data...</div>
+      )}
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-slate-200">
+        {[
+          { key: 'dropoff', label: 'New Wash' },
+          { key: 'history', label: `History (${studentOrders.length})` },
+          { key: 'kiosks', label: `Drop Points (${kiosks.length})` },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key as any)}
+            className={`tab-btn ${activeTab === tab.key ? 'tab-btn-active' : ''}`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* TAB 1: DROP-OFF WORKFLOW & 6KG LOAD CALCULATOR */}
+      {/* Tab 1: Drop-Off Builder */}
       {activeTab === 'dropoff' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Item Selector & Bag Builder */}
-          <div className="lg:col-span-8 space-y-6">
-            {/* Step 1: Drop Point Selection */}
-            <div className="glass-panel p-5 rounded-2xl border-white/10 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-sage/20 text-sage flex items-center justify-center text-xs">1</span>
-                  Select Drop Point
-                </h3>
-                <span className="text-xs text-slate-400">Available across hostels</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-5">
+            {/* Step 1: Drop Point */}
+            <div className="card p-5">
+              <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-primary-800 text-white flex items-center justify-center text-[11px] font-bold">1</span>
+                Select Drop Point
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {kiosks.map((kiosk) => {
                   const isSelected = selectedKiosk === kiosk.Drop_Point_ID
-                  const isMaintenance = kiosk.Operational_Status !== 'Active'
+                  const inactive = kiosk.Operational_Status !== 'Active'
                   return (
                     <button
                       key={kiosk.Drop_Point_ID}
                       type="button"
-                      disabled={isMaintenance}
+                      disabled={inactive}
                       onClick={() => setSelectedKiosk(kiosk.Drop_Point_ID)}
-                      className={`p-3 rounded-xl border text-left transition-all relative ${
+                      className={`p-3 rounded-lg border text-left text-xs transition-all ${
                         isSelected
-                          ? 'bg-sage/10 border-sage shadow-glass'
-                          : 'bg-obsidian-900/60 border-white/5 hover:border-white/20'
-                      } ${isMaintenance ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          ? 'border-primary-800 bg-blue-50 dark:bg-[#17221a] dark:border-[#a3c9a8] ring-1 ring-primary-800/20 dark:ring-[#a3c9a8]/30'
+                          : 'border-slate-200 dark:border-[#1d2420] bg-white dark:bg-[#0e1310] hover:border-slate-300 dark:hover:border-[#2a362d]'
+                      } ${inactive ? 'opacity-40 cursor-not-allowed' : ''}`}
                     >
-                      <div className="flex justify-between items-start mb-1">
-                        <span className="font-bold text-base text-white">{kiosk.Location}</span>
-                        <span
-                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                            kiosk.Operational_Status === 'Active' ? 'badge-sage' : 'badge-terracotta'
-                          }`}
-                        >
-                          {kiosk.Operational_Status}
-                        </span>
-                      </div>
-                      <div className="text-xs text-slate-400">Vendor: {kiosk.Vendor_Name}</div>
-                      <div className="text-[11px] text-slate-500 mt-1 font-mono">ID: #{kiosk.Drop_Point_ID}</div>
+                      <div className="font-semibold text-slate-800 dark:text-[#f0f2f0]">{kiosk.Location}</div>
+                      <div className="text-slate-400 dark:text-[#8a958d] mt-0.5">{kiosk.Vendor_Name}</div>
+                      {inactive && <span className="text-red-500 text-[10px] font-medium">Maintenance</span>}
                     </button>
                   )
                 })}
               </div>
             </div>
 
-            {/* Step 2: 6kg Load Calculator & Garment Counts */}
-            <div className="glass-panel p-5 rounded-2xl border-white/10 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-sage/20 text-sage flex items-center justify-center text-xs">2</span>
-                  Build Your Laundry Bag (6.0 kg Cap)
-                </h3>
-                <div className="text-xs text-slate-400 flex items-center gap-2">
-                  <span>Selected Items: <strong className="text-white">{totalItemsCount}</strong></span>
-                </div>
-              </div>
-
+            {/* Step 2: Item Selector */}
+            <div className="card p-5">
+              <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-primary-800 text-white flex items-center justify-center text-[11px] font-bold">2</span>
+                Add Items to Bag
+                <span className="ml-auto text-xs text-slate-400">{totalItemsCount} items selected</span>
+              </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {catalogItems.map((item) => {
                   const qty = itemQuantities[item.Item_ID] || 0
                   return (
                     <div
                       key={item.Item_ID}
-                      className={`p-3 rounded-xl border transition-all ${
-                        qty > 0
-                          ? 'bg-obsidian-900/80 border-sage/50 shadow-glass'
-                          : 'bg-obsidian-900/40 border-white/5 hover:border-white/10'
+                      className={`rounded-lg border p-3 transition-all ${
+                        qty > 0 
+                          ? 'border-primary-800/30 bg-blue-50/50 dark:bg-[#152018] dark:border-[#2d4232]' 
+                          : 'border-slate-200 dark:border-[#1d2420] bg-white dark:bg-[#0e1310]'
                       }`}
                     >
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <div className="font-semibold text-sm text-white">{item.Item_Name}</div>
-                          <div className="text-[11px] text-slate-400">{item.Category}</div>
+                          <div className="text-sm font-medium text-slate-800 dark:text-[#f0f2f0]">{item.Item_Name}</div>
+                          <div className="text-[11px] text-slate-400 dark:text-[#8a958d]">{item.Category}</div>
                         </div>
-                        <span className="text-xs font-mono text-gold bg-gold/10 px-2 py-0.5 rounded-md">
-                          {item.Standard_Weight} kg
+                        <span className="text-xs font-mono text-slate-500 dark:text-[#8a958d] bg-slate-100 dark:bg-[#161c18] border border-slate-200 dark:border-[#26332a] px-1.5 py-0.5 rounded">
+                          {item.Standard_Weight}kg
                         </span>
                       </div>
-
-                      <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-[#1d2420]">
                         <button
                           type="button"
                           onClick={() => updateQuantity(item.Item_ID, -1)}
                           disabled={qty === 0}
-                          className="w-7 h-7 rounded-lg bg-obsidian-950 border border-white/10 text-white flex items-center justify-center font-bold hover:bg-terracotta hover:border-terracotta disabled:opacity-30 disabled:hover:bg-obsidian-950 transition-colors"
-                        >
-                          -
-                        </button>
-                        <span className="font-mono text-sm font-bold text-white w-8 text-center">
-                          {qty}
-                        </span>
+                          className="w-7 h-7 rounded border border-slate-200 dark:border-[#26332a] bg-white dark:bg-[#161c18] text-slate-600 dark:text-[#c5cec7] flex items-center justify-center font-bold text-sm hover:bg-slate-50 dark:hover:bg-[#1f2721] active:bg-slate-100 dark:active:bg-[#131915] disabled:opacity-30"
+                        >−</button>
+                        <span className="font-mono text-sm font-bold text-slate-800 dark:text-[#f0f2f0] w-6 text-center">{qty}</span>
                         <button
                           type="button"
                           onClick={() => updateQuantity(item.Item_ID, 1)}
-                          className="w-7 h-7 rounded-lg bg-obsidian-950 border border-white/10 text-white flex items-center justify-center font-bold hover:bg-sage hover:text-obsidian-950 hover:border-sage transition-colors"
-                        >
-                          +
-                        </button>
+                          className="w-7 h-7 rounded border border-slate-200 dark:border-[#26332a] bg-white dark:bg-[#161c18] text-slate-600 dark:text-[#c5cec7] flex items-center justify-center font-bold text-sm hover:bg-slate-100 dark:hover:bg-[#a3c9a8] dark:hover:text-[#0d170f] dark:hover:border-[#a3c9a8] active:bg-slate-200 dark:active:bg-[#95be9b]"
+                        >+</button>
                       </div>
                     </div>
                   )
@@ -552,224 +432,126 @@ function StudentDashboardContent() {
             </div>
           </div>
 
-          {/* Right Column: Weight Meter & Drop-Off Confirmation */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="glass-panel p-5 rounded-2xl border-white/10 space-y-5 sticky top-24 shadow-glass">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200 border-b border-white/5 pb-3">
-                Cycle Weight Meter
-              </h3>
+          {/* Sidebar: Weight Meter + Submit */}
+          <div className="space-y-5">
+            <div className="card p-5 sticky top-20 space-y-4">
+              <h3 className="text-sm font-semibold text-slate-700 border-b border-slate-100 pb-2">Weight Summary</h3>
 
-              {/* Weight Display */}
-              <div className="space-y-2">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-xs text-slate-400">Total Calculated Weight</span>
-                  <span
-                    className={`font-mono text-2xl font-extrabold ${
-                      isOverweight ? 'text-terracotta' : totalWeightKg > 6.5 ? 'text-gold' : 'text-sage'
-                    }`}
-                  >
-                    {totalWeightKg.toFixed(2)}{' '}
-                    <span className="text-xs font-normal text-slate-400">/ 8.00 kg max</span>
+              {/* Weight bar */}
+              <div>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-slate-500">Total Weight</span>
+                  <span className={`font-mono font-bold ${isOverweight ? 'text-red-600' : totalWeightKg > 6.2 ? 'text-amber-600' : 'text-slate-800'}`}>
+                    {totalWeightKg.toFixed(2)} / 8.00 kg
                   </span>
                 </div>
-
-                {/* Meter Bar (Max 8.0 kg) */}
-                <div className="w-full h-3 rounded-full bg-obsidian-950 overflow-hidden border border-white/10 relative">
+                <div className="w-full h-2.5 rounded-full bg-slate-100 overflow-hidden">
                   <div
-                    className={`h-full transition-all duration-300 ${
-                      isOverweight
-                        ? 'bg-terracotta'
-                        : totalWeightKg > 6.2
-                        ? 'bg-gold'
-                        : 'bg-sage'
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      isOverweight ? 'bg-red-500' : totalWeightKg > 6.2 ? 'bg-amber-500' : 'bg-green-500'
                     }`}
-                    style={{ width: `${Math.min(100, (totalWeightKg / 8.0) * 100)}%` }}
-                  ></div>
+                    style={{ width: `${weightPercent}%` }}
+                  />
                 </div>
-
-                {isOverweight ? (
-                  <div className="text-[11px] text-terracotta flex items-center gap-1 font-semibold">
-                    <span>Over limit by {(totalWeightKg - 8.0).toFixed(2)} kg! Maximum single wash is 8.0 kg.</span>
-                  </div>
-                ) : totalWeightKg > 6.2 ? (
-                  <div className="text-[11px] text-gold flex items-center justify-between font-semibold">
-                    <span>Crossed 6.2 kg &bull; Deducts 2 Cycles</span>
-                  </div>
-                ) : (
-                  <div className="text-[11px] text-slate-400 flex items-center justify-between">
-                    <span>Standard: 1 Cycle up to 6.0kg</span>
-                  </div>
+                {isOverweight && (
+                  <p className="text-xs text-red-500 mt-1">Exceeds 8.0 kg limit! Remove some items.</p>
+                )}
+                {!isOverweight && totalWeightKg > 6.2 && (
+                  <p className="text-xs text-amber-600 mt-1">Above 6.2 kg — will deduct 2 cycles.</p>
                 )}
               </div>
 
-              {/* Cycle Burn Summary */}
-              <div className="p-3.5 rounded-xl bg-obsidian-900/80 border border-white/5 space-y-2 text-xs">
-                <div className="flex justify-between text-slate-300">
-                  <span>Quota Deduction:</span>
-                  <span className={`font-bold font-mono ${cyclesNeeded === 2 ? 'text-gold' : 'text-white'}`}>
-                    {cyclesNeeded} {cyclesNeeded === 2 ? 'Cycles (> 6.2kg)' : 'Cycle (≤ 6.2kg)'}
+              {/* Summary */}
+              <div className="bg-slate-50 rounded-lg p-3 space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Cycles to deduct</span>
+                  <span className={`font-semibold ${cyclesNeeded === 2 ? 'text-amber-600' : 'text-slate-700'}`}>
+                    {cyclesNeeded} {cyclesNeeded === 2 ? '(> 6.2 kg)' : '(≤ 6.2 kg)'}
                   </span>
                 </div>
-                <div className="flex justify-between text-slate-300">
-                  <span>Remaining After Drop:</span>
-                  <span className="font-bold text-white font-mono">
-                    {student ? Math.max(0, student.cycle_remaining - cyclesNeeded) : '--'} / {student?.quota ?? 30}
+                <div className="flex justify-between">
+                  <span className="text-slate-500">After drop-off</span>
+                  <span className="font-semibold text-slate-700">
+                    {student ? Math.max(0, student.cycle_remaining - cyclesNeeded) : '—'} / {student?.quota ?? 30}
                   </span>
                 </div>
-                <div className="flex justify-between text-slate-300">
-                  <span>Estimated Turnaround:</span>
-                  <span className="font-bold text-slate-200">
-                    {[5, 6].includes(new Date().getDay())
-                      ? '3-5 Days (Fri/Sat Weekend Peak)'
-                      : '2-3 Days (Mon-Thu Standard)'}
-                  </span>
-                </div>
-                <div className="flex justify-between text-slate-300">
-                  <span>Eligibility:</span>
-                  <span className={`font-bold ${student && student.cycle_remaining >= cyclesNeeded ? 'text-sage' : 'text-terracotta'}`}>
-                    {student && student.cycle_remaining >= cyclesNeeded ? 'Eligible' : 'Insufficient Cycles'}
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Turnaround</span>
+                  <span className="font-semibold text-slate-700">
+                    {[5, 6].includes(new Date().getDay()) ? '3-5 days' : '2-3 days'}
                   </span>
                 </div>
               </div>
 
-              {/* Status & Error Alerts */}
               {submitError && (
-                <div className="p-3 rounded-xl bg-terracotta/15 border border-terracotta/30 text-xs text-terracotta font-medium">
-                  {submitError}
-                </div>
+                <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-600">{submitError}</div>
               )}
 
               {submitResult && (
-                <div className="p-3.5 rounded-xl bg-sage/15 border border-sage/30 text-xs space-y-1">
-                  <div className="font-bold text-sage">
-                    Drop-Off Registered Successfully!
-                  </div>
-                  <div className="text-slate-300">
-                    Booking ID: <strong className="font-mono text-white">#{submitResult.transaction_id}</strong>
-                  </div>
-                  <div className="text-slate-400 text-[11px]">
-                    Expected Pickup: <strong>{new Date(submitResult.expected_delivery).toLocaleDateString()}</strong>
-                  </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-xs text-green-700">
+                  <div className="font-semibold">Drop-off registered!</div>
+                  <div>Order #{submitResult.transaction?.transaction_id}</div>
                 </div>
               )}
 
-              {/* Submit Button */}
               <button
                 type="button"
                 onClick={handleDropOffSubmit}
-                disabled={
-                  submitting ||
-                  isOverweight ||
-                  totalItemsCount === 0 ||
-                  !student ||
-                  student.cycle_remaining < cyclesNeeded
-                }
-                className="w-full py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider bg-sage text-obsidian-950 hover:bg-sage-light disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-glass flex items-center justify-center gap-2"
+                disabled={submitting || isOverweight || totalItemsCount === 0 || !student || student.cycle_remaining < cyclesNeeded}
+                className="btn btn-primary w-full py-2.5"
               >
-                {submitting ? (
-                  <span>Registering Drop-Off...</span>
-                ) : (
-                  <>
-                    <span>Confirm Drop-Off ({cyclesNeeded} {cyclesNeeded === 2 ? 'Cycles' : 'Cycle'})</span>
-                    <span>&rarr;</span>
-                  </>
-                )}
+                {submitting ? 'Submitting...' : `Confirm Drop-Off (${cyclesNeeded} cycle${cyclesNeeded > 1 ? 's' : ''})`}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* TAB 2: LAST 10 WASHES HISTORY */}
+      {/* Tab 2: History */}
       {activeTab === 'history' && (
-        <div className="glass-panel p-5 rounded-2xl border-white/10 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-3">
-            <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">
-                Data of Last 10 Washes &bull; Reg No: <span className="text-sage font-mono">{studentId}</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Displays the 10 most recent laundry cycles with turnaround dates and vendor completion statuses.
-              </p>
-            </div>
-            <span className="text-xs px-2.5 py-1 rounded-lg bg-obsidian-900 border border-white/10 text-slate-300 font-mono">
-              Total Recorded: {studentOrders.length} / 10
-            </span>
+        <div className="card overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-700">Recent Wash History</h3>
+            <span className="text-xs text-slate-400">{studentOrders.length} records</span>
           </div>
-
           {studentOrders.length === 0 ? (
-            <div className="text-center py-12 text-slate-500 text-xs">
-              No previous wash records found for this student.
-            </div>
+            <div className="text-center py-12 text-sm text-slate-400">No wash records found.</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="data-table">
                 <thead>
-                  <tr className="border-b border-white/10 text-slate-400">
-                    <th className="py-2.5 px-3">Order ID</th>
-                    <th className="py-2.5 px-3">Drop Point</th>
-                    <th className="py-2.5 px-3">Total Weight</th>
-                    <th className="py-2.5 px-3">Drop-Off Date</th>
-                    <th className="py-2.5 px-3">Expected Return</th>
-                    <th className="py-2.5 px-3">Actual Washed Date</th>
-                    <th className="py-2.5 px-3">Cycles Deducted</th>
-                    <th className="py-2.5 px-3">Status</th>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Drop Point</th>
+                    <th>Weight</th>
+                    <th>Drop-Off</th>
+                    <th>Expected</th>
+                    <th>Completed</th>
+                    <th>Cycles</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody>
                   {studentOrders.map((order: any, idx: number) => {
-                    const isCompleted = order.Status === 'Completed'
-                    const isCancelled = order.Status === 'Cancelled'
-                    const isPending = !isCompleted && !isCancelled
-
+                    const st = order.Status
                     return (
-                      <tr key={order.Transaction_ID || idx} className="hover:bg-white/5 transition-colors">
-                        <td className="py-3 px-3 font-mono font-bold text-white flex items-center gap-1.5">
-                          <span>#{order.Transaction_ID}</span>
-                          {idx === 0 && isPending && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-gold/20 text-gold border border-gold/30 uppercase">
-                              Active
-                            </span>
-                          )}
+                      <tr key={order.Transaction_ID || idx}>
+                        <td className="font-mono font-semibold">#{order.Transaction_ID}</td>
+                        <td>{order.drop_point_location || order.Drop_Point_ID}</td>
+                        <td className="font-mono">{order.Total_Weight} kg</td>
+                        <td>{order.Drop_Off_Date ? new Date(order.Drop_Off_Date).toLocaleDateString() : '—'}</td>
+                        <td>{order.Expected_Completion_Date ? new Date(order.Expected_Completion_Date).toLocaleDateString() : '—'}</td>
+                        <td>
+                          {order.Actual_Completion_Date
+                            ? <span className="text-green-600 font-medium">{new Date(order.Actual_Completion_Date).toLocaleDateString()}</span>
+                            : <span className="text-slate-400 italic">Pending</span>}
                         </td>
-                        <td className="py-3 px-3 font-semibold text-white">
-                          {order.drop_point_location || order.Drop_Point_ID}
-                        </td>
-                        <td className="py-3 px-3 font-mono text-gold">
-                          {order.Total_Weight} kg
-                        </td>
-                        <td className="py-3 px-3 text-slate-300">
-                          {order.Drop_Off_Date ? new Date(order.Drop_Off_Date).toLocaleDateString() : 'N/A'}
-                        </td>
-                        <td className="py-3 px-3 text-slate-400">
-                          {order.Expected_Completion_Date
-                            ? new Date(order.Expected_Completion_Date).toLocaleDateString()
-                            : 'N/A'}
-                        </td>
-                        <td className="py-3 px-3 font-mono text-slate-200">
-                          {order.Actual_Completion_Date ? (
-                            <span className="text-sage font-semibold">
-                              {new Date(order.Actual_Completion_Date).toLocaleDateString()}
-                            </span>
-                          ) : (
-                            <span className="text-slate-500 italic">In Process</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 font-mono text-slate-300">
-                          {order.Cycles_Deducted ?? 1} Cycle
-                        </td>
-                        <td className="py-3 px-3">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              isCompleted
-                                ? 'badge-sage'
-                                : isCancelled
-                                ? 'badge-terracotta'
-                                : 'badge-gold'
-                            }`}
-                          >
-                            {order.Status}
-                          </span>
+                        <td className="font-mono">{order.Cycles_Deducted ?? 1}</td>
+                        <td>
+                          <span className={`badge ${
+                            st === 'Completed' ? 'badge-green' :
+                            st === 'Cancelled' ? 'badge-red' : 'badge-yellow'
+                          }`}>{st}</span>
                         </td>
                       </tr>
                     )
@@ -781,36 +563,23 @@ function StudentDashboardContent() {
         </div>
       )}
 
-      {/* TAB 3: HOSTEL DROP POINTS */}
+      {/* Tab 3: Drop Points */}
       {activeTab === 'kiosks' && (
-        <div className="glass-panel p-5 rounded-2xl border-white/10 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">
-              Hostel Laundry Drop Points &amp; Commercial Vendor Network
-            </h3>
-            <span className="text-xs text-slate-400">Standard 72h turnaround</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-slate-700 mb-4">Hostel Drop Points</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             {kiosks.map((k) => (
-              <div key={k.Drop_Point_ID} className="glass-card p-4 rounded-xl space-y-2">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-bold text-white text-base">{k.Location}</h4>
-                    <span className="text-xs font-mono text-slate-400">Point ID: #{k.Drop_Point_ID}</span>
-                  </div>
-                  <span
-                    className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
-                      k.Operational_Status === 'Active' ? 'badge-sage' : 'badge-terracotta'
-                    }`}
-                  >
+              <div key={k.Drop_Point_ID} className="border border-slate-200 rounded-lg p-4 bg-white">
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="font-semibold text-slate-800">{k.Location}</h4>
+                  <span className={`badge ${k.Operational_Status === 'Active' ? 'badge-green' : 'badge-red'}`}>
                     {k.Operational_Status}
                   </span>
                 </div>
-
-                <div className="border-t border-white/5 pt-2 text-xs text-slate-300 space-y-1">
-                  <div>Assigned Vendor: <strong>{k.Vendor_Name}</strong></div>
-                  <div>Contact: <span className="font-mono text-slate-400">{k.Contact_No}</span></div>
+                <div className="text-xs text-slate-500 space-y-1 border-t border-slate-100 pt-2">
+                  <div>Vendor: <strong className="text-slate-700">{k.Vendor_Name}</strong></div>
+                  <div>Contact: <span className="font-mono">{k.Contact_No}</span></div>
+                  <div className="text-slate-400 font-mono text-[11px]">ID: {k.Drop_Point_ID}</div>
                 </div>
               </div>
             ))}
@@ -823,13 +592,7 @@ function StudentDashboardContent() {
 
 export default function StudentDashboardPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center min-h-[60vh] text-slate-400 text-sm">
-          Loading student session...
-        </div>
-      }
-    >
+    <Suspense fallback={<div className="flex items-center justify-center min-h-[60vh] text-slate-400 text-sm">Loading...</div>}>
       <StudentDashboardContent />
     </Suspense>
   )

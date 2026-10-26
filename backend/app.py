@@ -3,6 +3,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from routes.laundry_routes import laundry_bp
 from routes.admin_mgmt_routes import admin_mgmt_bp
+from routes.auth_routes import auth_bp
 
 def create_app():
     app = Flask(__name__)
@@ -14,6 +15,7 @@ def create_app():
     # Register API Blueprints
     app.register_blueprint(laundry_bp)
     app.register_blueprint(admin_mgmt_bp)
+    app.register_blueprint(auth_bp)
 
     @app.route("/")
     def health_check():
@@ -21,12 +23,6 @@ def create_app():
             "service": "CampusLaundry Backend API",
             "status": "Online",
             "version": "1.0.0",
-            "policies": {
-                "academic_months": 8,
-                "quota_cycles": 30,
-                "cycle_weight_cap_kg": 6.0,
-                "turnaround_days": 3
-            }
         })
 
     @app.errorhandler(404)
@@ -43,5 +39,5 @@ app = create_app()
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
-    print(f">> Starting CampusLaundry Flask API Server on http://localhost:{port}")
+    print(f">> CampusLaundry API on http://localhost:{port}")
     app.run(host="0.0.0.0", port=port, debug=False)

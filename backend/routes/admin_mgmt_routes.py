@@ -12,6 +12,7 @@ across core campus tables:
 
 from flask import Blueprint, request, jsonify
 from database import execute_query, DatabaseTransaction
+from auth_middleware import require_admin
 from datetime import datetime, timedelta
 
 admin_mgmt_bp = Blueprint("admin_mgmt", __name__, url_prefix="/api/admin/tables")
@@ -38,6 +39,7 @@ PRIMARY_KEYS = {
 # 1. GET ALL RECORDS
 # -------------------------------------------------------------
 @admin_mgmt_bp.route("/<table_name>", methods=["GET"])
+@require_admin
 def get_table_records(table_name):
     """Retrieve all rows for a given database table."""
     if table_name not in ALLOWED_TABLES:
@@ -72,6 +74,7 @@ def get_table_records(table_name):
 # 2. INSERT RECORD (CREATE)
 # -------------------------------------------------------------
 @admin_mgmt_bp.route("/<table_name>", methods=["POST"])
+@require_admin
 def add_table_record(table_name):
     """Insert a new record into any of the 6 tables with proper validation."""
     if table_name not in ALLOWED_TABLES:
@@ -219,6 +222,7 @@ def add_table_record(table_name):
 # 3. UPDATE RECORD (PUT / PATCH)
 # -------------------------------------------------------------
 @admin_mgmt_bp.route("/<table_name>/<path:record_id>", methods=["PUT", "PATCH"])
+@require_admin
 def update_table_record(table_name, record_id):
     """
     Update changes to any record in students, vendor, drop_point, laundry_item, etc.
@@ -324,6 +328,7 @@ def update_table_record(table_name, record_id):
 # 4. DELETE RECORD (DELETE)
 # -------------------------------------------------------------
 @admin_mgmt_bp.route("/<table_name>/<path:record_id>", methods=["DELETE"])
+@require_admin
 def delete_table_record(table_name, record_id):
     """
     Safely delete a record by its primary key.

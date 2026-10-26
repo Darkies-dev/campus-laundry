@@ -1,14 +1,16 @@
 // CampusLaundry API Client
-// Handles communication between Next.js App Router and Python Flask MySQL Backend
+// Handles communication between Next.js frontend and Python Flask backend
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000/api';
+const API_BASE = '/api';
+
+// --- Type Definitions ---
 
 export interface AcademicPolicy {
   academic_months: number;
   recommended_monthly_burn: number;
   cycle_weight_cap_kg: number;
   pace_status: string;
-  pace_color: 'sage' | 'gold' | 'terracotta';
+  pace_color: string;
 }
 
 export interface Student {
@@ -75,6 +77,7 @@ export interface Transaction {
   vendor_name?: string;
   Drop_Off_Date: string;
   Expected_Completion_Date: string;
+  Actual_Completion_Date?: string;
   Total_Weight: number;
   Cycles_Deducted: number;
   Status: 'Submitted' | 'In Wash' | 'Ready for Pickup' | 'Completed' | 'Cancelled';
@@ -95,31 +98,69 @@ export interface DashboardMetrics {
   default_turnaround_days: number;
 }
 
-// Helper fetch wrapper
+export interface AdminUser {
+  admin_id: number;
+  username: string;
+  full_name: string;
+  role: string;
+}
+
+// --- Auth helpers ---
+
+function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('admin_token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+  return headers;
+}
+
+// --- Fetch wrapper ---
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
-  try {
-    const res = await fetch(url, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {}),
-      },
-      cache: 'no-store', // Always get fresh data from Flask
-    });
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      ...getAuthHeaders(),
+      ...(options.headers || {}),
+    },
+    credentials: 'include',
+    cache: 'no-store',
+  });
 
-    const data = await res.json();
-    if (!res.ok || data.success === false) {
-      throw new Error(data.error || `HTTP error ${res.status}`);
-    }
-    return data;
-  } catch (error: any) {
-    console.error(`API Fetch Error [${endpoint}]:`, error);
-    throw error;
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.error || `Request failed (${res.status})`);
+  }
+  return data;
+}
+
+// --- Auth ---
+
+export async function checkAdminSession(): Promise<{ authenticated: boolean; admin?: AdminUser }> {
+  try {
+    const res = await request<{ success: boolean; authenticated: boolean; admin?: AdminUser }>('/auth/me');
+    return { authenticated: res.authenticated, admin: res.admin };
+  } catch {
+    return { authenticated: false };
   }
 }
 
-// 1. Fetch Student Quota and 8-Month Academic Pace
+export async function adminLogout(): Promise<void> {
+  try {
+    await request<any>('/auth/logout', { method: 'POST' });
+  } catch { /* ignore */ }
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('admin_token');
+  }
+}
+
+// --- Student ---
+
 export async function fetchStudentQuota(stdId: string): Promise<{
   student: Student;
   recent_orders: Transaction[];
@@ -132,9 +173,7 @@ export async function fetchStudentQuota(stdId: string): Promise<{
     recent_orders: Transaction[];
     active_order?: any;
     can_submit_new?: boolean;
-  }>(
-    `/student/${encodeURIComponent(stdId)}`
-  );
+  }>(`/student/${encodeURIComponent(stdId)}`);
   return {
     student: res.student,
     recent_orders: res.recent_orders || [],
@@ -143,7 +182,6 @@ export async function fetchStudentQuota(stdId: string): Promise<{
   };
 }
 
-// 1b. Register Student with Registration Number
 export async function registerStudent(payload: {
   std_id: string;
   std_name: string;
@@ -158,38 +196,41 @@ export async function registerStudent(payload: {
   });
 }
 
-// In-Memory Client Cache for instantaneous navigation
-let _clientKiosks: Kiosk[] | null = null;
-let _clientItems: { items: LaundryItem[]; cycle_policy: any } | null = null;
-let _kiosksTime = 0;
-let _itemsTime = 0;
-const CLIENT_CACHE_TTL = 120000; // 2 minutes
+// --- Kiosks ---
 
-// 2. Fetch Kiosk Drop Points
+let _kiosksCache: Kiosk[] | null = null;
+let _kiosksTime = 0;
+const CACHE_TTL = 120000;
+
 export async function fetchKiosks(forceRefresh = false): Promise<Kiosk[]> {
   const now = Date.now();
-  if (!forceRefresh && _clientKiosks && (now - _kiosksTime < CLIENT_CACHE_TTL)) {
-    return _clientKiosks;
+  if (!forceRefresh && _kiosksCache && (now - _kiosksTime < CACHE_TTL)) {
+    return _kiosksCache;
   }
   const res = await request<{ success: boolean; kiosks: Kiosk[] }>('/kiosks');
-  _clientKiosks = res.kiosks;
+  _kiosksCache = res.kiosks;
   _kiosksTime = now;
   return res.kiosks;
 }
 
-// 3. Fetch Laundry Items Catalog & Weights
+// --- Items ---
+
+let _itemsCache: { items: LaundryItem[]; cycle_policy: any } | null = null;
+let _itemsTime = 0;
+
 export async function fetchLaundryItems(forceRefresh = false): Promise<{ items: LaundryItem[]; cycle_policy: any }> {
   const now = Date.now();
-  if (!forceRefresh && _clientItems && (now - _itemsTime < CLIENT_CACHE_TTL)) {
-    return _clientItems;
+  if (!forceRefresh && _itemsCache && (now - _itemsTime < CACHE_TTL)) {
+    return _itemsCache;
   }
   const res = await request<{ success: boolean; items: LaundryItem[]; cycle_policy: any }>('/items');
-  _clientItems = res;
+  _itemsCache = res;
   _itemsTime = now;
   return res;
 }
 
-// 4. Submit Drop-off with Weight Calculation & Cycle Deduction
+// --- Drop-off ---
+
 export async function submitDropOff(payload: DropOffPayload): Promise<any> {
   return await request<any>('/drop-off', {
     method: 'POST',
@@ -197,7 +238,8 @@ export async function submitDropOff(payload: DropOffPayload): Promise<any> {
   });
 }
 
-// 5. Fetch Transactions
+// --- Transactions ---
+
 export async function fetchTransactions(status?: string, stdId?: string): Promise<Transaction[]> {
   const params = new URLSearchParams();
   if (status && status !== 'All') params.append('status', status);
@@ -207,13 +249,11 @@ export async function fetchTransactions(status?: string, stdId?: string): Promis
   return res.transactions;
 }
 
-// 6. Fetch Transaction Detail
 export async function fetchTransactionDetail(txnId: string): Promise<Transaction> {
   const res = await request<{ success: boolean; transaction: Transaction }>(`/transactions/${txnId}`);
   return res.transaction;
 }
 
-// 7. Update Status
 export async function updateTransactionStatus(txnId: string, status: string): Promise<any> {
   return await request<any>(`/transactions/${txnId}/status`, {
     method: 'PATCH',
@@ -221,7 +261,8 @@ export async function updateTransactionStatus(txnId: string, status: string): Pr
   });
 }
 
-// 8. Fetch Dashboard Metrics
+// --- Dashboard ---
+
 export async function fetchDashboard(): Promise<{ metrics: DashboardMetrics; recent_transactions: Transaction[] }> {
   const res = await request<{ success: boolean; metrics: DashboardMetrics; recent_transactions: Transaction[] }>(
     '/dashboard'
@@ -229,7 +270,8 @@ export async function fetchDashboard(): Promise<{ metrics: DashboardMetrics; rec
   return { metrics: res.metrics, recent_transactions: res.recent_transactions };
 }
 
-// 9. Admin Direct Table Management APIs
+// --- Admin Table Management ---
+
 export async function fetchTableRecords(tableName: string): Promise<{ records: any[]; count: number }> {
   const res = await request<{ success: boolean; records: any[]; count: number }>(
     `/admin/tables/${tableName}`
